@@ -14,7 +14,7 @@
       border: 1px solid rgba(0, 200, 255, 0.2);
       border-radius: 12px; padding: 14px 16px;
       color: #cce; font-family: sans-serif; font-size: 13px;
-      min-width: 220px; backdrop-filter: blur(8px);
+      min-width: 230px; backdrop-filter: blur(8px);
     }
     #controls h3 {
       font-size: 13px; font-weight: 600; color: #7df;
@@ -22,14 +22,25 @@
     }
     .ctrl-group { margin-bottom: 12px; }
     .ctrl-group label { display: block; color: #89c; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .ctrl-group select, .ctrl-group input[type=range] { width: 100%; }
-    select {
+    select, input[type=date] {
       background: rgba(0,30,60,0.8); color: #adf;
       border: 1px solid rgba(0,180,255,0.3); border-radius: 6px;
       padding: 5px 8px; font-size: 12px; width: 100%;
     }
-    input[type=range] { accent-color: #0cf; }
+    input[type=range] { accent-color: #0cf; width: 100%; }
     .val-display { float: right; color: #7df; font-size: 11px; }
+
+    .toggle-row {
+      display: flex; gap: 8px; margin-bottom: 12px;
+    }
+    .toggle-btn {
+      flex: 1; padding: 7px 0; border-radius: 8px; border: 1px solid rgba(0,200,255,0.25);
+      background: rgba(0,30,60,0.6); color: #7df; font-size: 12px;
+      cursor: pointer; text-align: center; transition: all 0.2s;
+    }
+    .toggle-btn.active {
+      background: rgba(0,150,255,0.3); border-color: #0cf; color: #fff;
+    }
 
     #status {
       position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
@@ -37,6 +48,7 @@
       padding: 6px 16px; border-radius: 20px;
       font-family: sans-serif; font-size: 12px; z-index: 9999;
       border: 1px solid rgba(0,200,255,0.2);
+      white-space: nowrap;
     }
 
     #toggle-btn {
@@ -45,55 +57,78 @@
       color: #7df; border-radius: 8px; padding: 7px 12px;
       font-size: 12px; cursor: pointer; font-family: sans-serif;
     }
+
+    .heat-only { display: none; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-
   <button id="toggle-btn" onclick="toggleControls()">⚙ Controls</button>
 
   <div id="controls">
-    <h3>🗺 Heatmap Controls</h3>
+    <h3>🗺 Garmin Heatmap</h3>
 
+    <!-- View mode toggle -->
+    <div class="ctrl-group">
+      <label>View Mode</label>
+      <div class="toggle-row">
+        <div class="toggle-btn active" id="btn-heat" onclick="setMode('heat')">🔥 Heatmap</div>
+        <div class="toggle-btn" id="btn-routes" onclick="setMode('routes')">🛤 Routes</div>
+        <div class="toggle-btn" id="btn-both" onclick="setMode('both')">Both</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
     <div class="ctrl-group">
       <label>Activity Type</label>
       <select id="filter-type" onchange="applyFilters()">
         <option value="all">All Activities</option>
       </select>
     </div>
-
     <div class="ctrl-group">
       <label>From Date</label>
-      <input type="date" id="filter-from" onchange="applyFilters()"
-        style="background:rgba(0,30,60,0.8);color:#adf;border:1px solid rgba(0,180,255,0.3);border-radius:6px;padding:5px 8px;font-size:12px;width:100%;">
+      <input type="date" id="filter-from" onchange="applyFilters()">
     </div>
-
     <div class="ctrl-group">
       <label>To Date</label>
-      <input type="date" id="filter-to" onchange="applyFilters()"
-        style="background:rgba(0,30,60,0.8);color:#adf;border:1px solid rgba(0,180,255,0.3);border-radius:6px;padding:5px 8px;font-size:12px;width:100%;">
+      <input type="date" id="filter-to" onchange="applyFilters()">
     </div>
 
-    <div class="ctrl-group">
-      <label>Radius <span class="val-display" id="radius-val">8</span></label>
-      <input type="range" id="ctrl-radius" min="2" max="25" value="8"
-        oninput="document.getElementById('radius-val').textContent=this.value; updateHeat()">
+    <!-- Heatmap controls -->
+    <div id="heat-controls">
+      <div class="ctrl-group">
+        <label>Radius <span class="val-display" id="radius-val">8</span></label>
+        <input type="range" id="ctrl-radius" min="2" max="25" value="8"
+          oninput="document.getElementById('radius-val').textContent=this.value; redraw()">
+      </div>
+      <div class="ctrl-group">
+        <label>Blur <span class="val-display" id="blur-val">12</span></label>
+        <input type="range" id="ctrl-blur" min="1" max="30" value="12"
+          oninput="document.getElementById('blur-val').textContent=this.value; redraw()">
+      </div>
+      <div class="ctrl-group">
+        <label>Intensity <span class="val-display" id="intensity-val">0.5</span></label>
+        <input type="range" id="ctrl-intensity" min="1" max="10" value="5"
+          oninput="document.getElementById('intensity-val').textContent=(this.value/10).toFixed(1); redraw()">
+      </div>
     </div>
 
-    <div class="ctrl-group">
-      <label>Blur <span class="val-display" id="blur-val">12</span></label>
-      <input type="range" id="ctrl-blur" min="1" max="30" value="12"
-        oninput="document.getElementById('blur-val').textContent=this.value; updateHeat()">
-    </div>
-
-    <div class="ctrl-group">
-      <label>Intensity <span class="val-display" id="intensity-val">0.5</span></label>
-      <input type="range" id="ctrl-intensity" min="1" max="10" value="5"
-        oninput="document.getElementById('intensity-val').textContent=(this.value/10).toFixed(1); updateHeat()">
+    <!-- Route controls -->
+    <div id="route-controls" style="display:none">
+      <div class="ctrl-group">
+        <label>Line Opacity <span class="val-display" id="opacity-val">0.6</span></label>
+        <input type="range" id="ctrl-opacity" min="1" max="10" value="6"
+          oninput="document.getElementById('opacity-val').textContent=(this.value/10).toFixed(1); redraw()">
+      </div>
+      <div class="ctrl-group">
+        <label>Line Weight <span class="val-display" id="weight-val">1.5</span></label>
+        <input type="range" id="ctrl-weight" min="5" max="30" value="15"
+          oninput="document.getElementById('weight-val').textContent=(this.value/10).toFixed(1); redraw()">
+      </div>
     </div>
   </div>
 
-  <div id="status">Loading heatmap...</div>
+  <div id="status">Loading...</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/simpleheat@0.4.0/simpleheat.js"></script>
@@ -101,66 +136,107 @@
 
   <script>
     const map = L.map('map', { preferCanvas: true }).setView([51.5, -0.1], 11);
-
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution: '© OpenStreetMap © CARTO', maxZoom: 19
     }).addTo(map);
 
-    // Cool ocean gradient
     const GRADIENT = {
-      0.0: '#000033',
-      0.2: '#003399',
-      0.4: '#0066cc',
-      0.6: '#00ccdd',
-      0.8: '#66eeff',
-      1.0: '#ffffff'
+      0.0: '#000033', 0.2: '#003399', 0.4: '#0066cc',
+      0.6: '#00ccdd', 0.8: '#66eeff', 1.0: '#ffffff'
     };
+
+    // Colours per activity type for route mode
+    const TYPE_COLOURS = {
+      running:            '#00cfff',
+      cycling:            '#ff6b35',
+      swimming:           '#00ff99',
+      hiking:             '#ffdd57',
+      walking:            '#cc99ff',
+      trail_running:      '#00ffcc',
+      road_biking:        '#ff9900',
+      mountain_biking:    '#ff5500',
+      unknown:            '#aaaaaa',
+    };
+    function typeColour(t) { return TYPE_COLOURS[t] || '#88ccff'; }
 
     let allData = [];
     let heatLayer = null;
+    let routeLayer = L.layerGroup().addTo(map);
+    let mode = 'heat';
 
     function toggleControls() {
       const c = document.getElementById('controls');
       c.style.display = c.style.display === 'none' ? 'block' : 'none';
     }
 
-    function getFilteredPoints() {
+    function setMode(m) {
+      mode = m;
+      ['heat','routes','both'].forEach(x => {
+        document.getElementById('btn-'+x).classList.toggle('active', x === m);
+      });
+      document.getElementById('heat-controls').style.display  = (m === 'routes') ? 'none' : 'block';
+      document.getElementById('route-controls').style.display = (m === 'heat')   ? 'none' : 'block';
+      redraw();
+    }
+
+    function getFiltered() {
       const type = document.getElementById('filter-type').value;
       const from = document.getElementById('filter-from').value;
-      const to = document.getElementById('filter-to').value;
+      const to   = document.getElementById('filter-to').value;
+      return allData.filter(a =>
+        (type === 'all' || a.type === type) &&
+        (!from || a.date >= from) &&
+        (!to   || a.date <= to)
+      );
+    }
+
+    function redraw() {
+      const filtered = getFiltered();
       const intensity = parseFloat(document.getElementById('ctrl-intensity').value) / 10;
 
-      return allData
-        .filter(p => type === 'all' || p.type === type)
-        .filter(p => !from || !p.date || p.date >= from)
-        .filter(p => !to   || !p.date || p.date <= to)
-        .map(p => [p.lat, p.lon, intensity]);
-    }
+      // --- Heatmap ---
+      if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+      if (mode === 'heat' || mode === 'both') {
+        const pts = filtered.flatMap(a => a.points.map(p => [p[0], p[1], intensity]));
+        heatLayer = L.heatLayer(pts, {
+          radius:   parseInt(document.getElementById('ctrl-radius').value),
+          blur:     parseInt(document.getElementById('ctrl-blur').value),
+          maxZoom:  17,
+          gradient: GRADIENT
+        }).addTo(map);
+      }
 
-    function updateHeat() {
-      const pts = getFilteredPoints();
-      const radius = parseInt(document.getElementById('ctrl-radius').value);
-      const blur = parseInt(document.getElementById('ctrl-blur').value);
+      // --- Routes ---
+      routeLayer.clearLayers();
+      if (mode === 'routes' || mode === 'both') {
+        const opacity = parseFloat(document.getElementById('ctrl-opacity').value) / 10;
+        const weight  = parseFloat(document.getElementById('ctrl-weight').value) / 10;
+        filtered.forEach(a => {
+          if (!a.points.length) return;
+          L.polyline(a.points, {
+            color:   typeColour(a.type),
+            weight,
+            opacity,
+            smoothFactor: 1
+          }).bindTooltip(`${a.name}<br>${a.date} · ${a.type}`, { sticky: true })
+            .addTo(routeLayer);
+        });
+      }
 
-      if (heatLayer) map.removeLayer(heatLayer);
-      heatLayer = L.heatLayer(pts, {
-        radius, blur, maxZoom: 17, gradient: GRADIENT
-      }).addTo(map);
-
+      const totalPts = filtered.reduce((s, a) => s + a.points.length, 0);
       document.getElementById('status').textContent =
-        `${pts.length.toLocaleString()} points shown`;
+        `${filtered.length} activities · ${totalPts.toLocaleString()} points`;
     }
 
-    function applyFilters() { updateHeat(); }
+    function applyFilters() { redraw(); }
 
     function populateTypeFilter(data) {
-      const types = [...new Set(data.map(p => p.type).filter(Boolean))].sort();
+      const types = [...new Set(data.map(a => a.type).filter(Boolean))].sort();
       const sel = document.getElementById('filter-type');
       types.forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        sel.appendChild(opt);
+        const o = document.createElement('option');
+        o.value = t; o.textContent = t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+        sel.appendChild(o);
       });
     }
 
@@ -170,22 +246,20 @@
         allData = data;
         populateTypeFilter(data);
 
-        // Set date range defaults
-        const dates = data.map(p => p.date).filter(Boolean).sort();
+        const dates = data.map(a => a.date).filter(Boolean).sort();
         if (dates.length) {
           document.getElementById('filter-from').value = dates[0];
-          document.getElementById('filter-to').value = dates[dates.length - 1];
+          document.getElementById('filter-to').value   = dates[dates.length-1];
         }
 
-        // Auto-fit map
-        const lats = data.map(p => p.lat);
-        const lons = data.map(p => p.lon);
-        map.fitBounds([
-          [Math.min(...lats), Math.min(...lons)],
-          [Math.max(...lats), Math.max(...lons)]
-        ]);
-
-        updateHeat();
+        const allPts = data.flatMap(a => a.points);
+        if (allPts.length) {
+          map.fitBounds([
+            [Math.min(...allPts.map(p=>p[0])), Math.min(...allPts.map(p=>p[1]))],
+            [Math.max(...allPts.map(p=>p[0])), Math.max(...allPts.map(p=>p[1]))]
+          ]);
+        }
+        redraw();
       })
       .catch(e => {
         document.getElementById('status').textContent = '❌ ' + e.message;
