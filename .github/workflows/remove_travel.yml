@@ -18,16 +18,7 @@ jobs:
           python-version: '3.11'
 
       - name: Remove travel entries
-        run: |
-          python3 -c "
-import json
-with open('docs/heatmap.json') as f:
-    data = json.load(f)
-cleaned = [a for a in data if a.get('type') != 'travel']
-with open('docs/heatmap.json', 'w') as f:
-    json.dump(cleaned, f)
-print(f'Done. Removed travel entries. Remaining: {len(cleaned)} activities')
-"
+        run: python3 remove_travel.py
 
       - name: Commit cleaned heatmap
         run: |
