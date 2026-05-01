@@ -24,7 +24,7 @@ except:
     existing_ids = set()
     print("📍 Starting fresh")
 
-raw_activities = client.get_activities(0, 100)
+raw_activities = client.get_activities(0, 500)
 print(f"🏃 Found {len(raw_activities)} activities from Garmin")
 
 for act in raw_activities:
