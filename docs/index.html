@@ -5,23 +5,97 @@
   <title>My Garmin Heatmap</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <style>
-    html, body, #map { height: 100%; margin: 0; background: #111; }
-    #status { position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-              background: rgba(0,0,0,0.7); color: white; padding: 6px 14px;
-              border-radius: 20px; font-family: sans-serif; font-size: 13px;
-              z-index: 9999; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #map { height: 100%; background: #0a0a1a; }
+
+    #controls {
+      position: fixed; top: 12px; left: 12px; z-index: 9999;
+      background: rgba(5, 10, 30, 0.92);
+      border: 1px solid rgba(0, 200, 255, 0.2);
+      border-radius: 12px; padding: 14px 16px;
+      color: #cce; font-family: sans-serif; font-size: 13px;
+      min-width: 220px; backdrop-filter: blur(8px);
+    }
+    #controls h3 {
+      font-size: 13px; font-weight: 600; color: #7df;
+      margin-bottom: 12px; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .ctrl-group { margin-bottom: 12px; }
+    .ctrl-group label { display: block; color: #89c; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .ctrl-group select, .ctrl-group input[type=range] { width: 100%; }
+    select {
+      background: rgba(0,30,60,0.8); color: #adf;
+      border: 1px solid rgba(0,180,255,0.3); border-radius: 6px;
+      padding: 5px 8px; font-size: 12px; width: 100%;
+    }
+    input[type=range] { accent-color: #0cf; }
+    .val-display { float: right; color: #7df; font-size: 11px; }
+
+    #status {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.75); color: #7df;
+      padding: 6px 16px; border-radius: 20px;
+      font-family: sans-serif; font-size: 12px; z-index: 9999;
+      border: 1px solid rgba(0,200,255,0.2);
+    }
+
+    #toggle-btn {
+      position: fixed; top: 12px; right: 12px; z-index: 9999;
+      background: rgba(5,10,30,0.9); border: 1px solid rgba(0,200,255,0.2);
+      color: #7df; border-radius: 8px; padding: 7px 12px;
+      font-size: 12px; cursor: pointer; font-family: sans-serif;
+    }
   </style>
 </head>
 <body>
-  <div id="status">Loading heatmap...</div>
   <div id="map"></div>
 
+  <button id="toggle-btn" onclick="toggleControls()">⚙ Controls</button>
+
+  <div id="controls">
+    <h3>🗺 Heatmap Controls</h3>
+
+    <div class="ctrl-group">
+      <label>Activity Type</label>
+      <select id="filter-type" onchange="applyFilters()">
+        <option value="all">All Activities</option>
+      </select>
+    </div>
+
+    <div class="ctrl-group">
+      <label>From Date</label>
+      <input type="date" id="filter-from" onchange="applyFilters()"
+        style="background:rgba(0,30,60,0.8);color:#adf;border:1px solid rgba(0,180,255,0.3);border-radius:6px;padding:5px 8px;font-size:12px;width:100%;">
+    </div>
+
+    <div class="ctrl-group">
+      <label>To Date</label>
+      <input type="date" id="filter-to" onchange="applyFilters()"
+        style="background:rgba(0,30,60,0.8);color:#adf;border:1px solid rgba(0,180,255,0.3);border-radius:6px;padding:5px 8px;font-size:12px;width:100%;">
+    </div>
+
+    <div class="ctrl-group">
+      <label>Radius <span class="val-display" id="radius-val">8</span></label>
+      <input type="range" id="ctrl-radius" min="2" max="25" value="8"
+        oninput="document.getElementById('radius-val').textContent=this.value; updateHeat()">
+    </div>
+
+    <div class="ctrl-group">
+      <label>Blur <span class="val-display" id="blur-val">12</span></label>
+      <input type="range" id="ctrl-blur" min="1" max="30" value="12"
+        oninput="document.getElementById('blur-val').textContent=this.value; updateHeat()">
+    </div>
+
+    <div class="ctrl-group">
+      <label>Intensity <span class="val-display" id="intensity-val">0.5</span></label>
+      <input type="range" id="ctrl-intensity" min="1" max="10" value="5"
+        oninput="document.getElementById('intensity-val').textContent=(this.value/10).toFixed(1); updateHeat()">
+    </div>
+  </div>
+
+  <div id="status">Loading heatmap...</div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <!-- leaflet.heat inlined to avoid CDN issues -->
-  <script>
-  // Inlined leaflet.heat v0.2.0
-  !function(t,i){"object"==typeof module&&module.exports?module.exports=i(require("leaflet")):i(t.L)}(this,function(t){t.HeatLayer=t.Layer.extend({initialize:function(t,i){this._latlngs=t,t.setOptions(this,i)},setLatLngs:function(t){return this._latlngs=t,this.redraw()},addLatLng:function(t){return this._latlngs.push(t),this.redraw()},setOptions:function(t){return L.setOptions(this,t),this._heat&&this._updateOptions(),this.redraw()},redraw:function(){return!this._heat||this._frame||this._map._animating||(this._frame=t.Util.requestAnimFrame(this._redraw,this)),this},onAdd:function(t){this._map=t;var i=this._canvas=document.createElement("canvas"),e=i.style;e.position="absolute",e.left="0",e.top="0",e.pointerEvents="none",(t._panes.overlayPane||t._panes.mapPane).appendChild(i),t.on("moveend",this._reset,this),t.options.zoomAnimation&&t.Browser.any3d&&t.on("zoomanim",this._animateZoom,this),this._reset()},onRemove:function(t){(t._panes.overlayPane||t._panes.mapPane).removeChild(this._canvas),t.off("moveend",this._reset,this),t.options.zoomAnimation&&t.off("zoomanim",this._animateZoom,this)},addTo:function(t){return t.addLayer(this),this},_reset:function(){var t=this._map.getSize();this._canvas.width=t.x,this._canvas.height=t.y;var i=this._map.containerPointToLayerPoint([0,0]);t.DomUtil.setPosition(this._canvas,i),this._redraw()},_redraw:function(){if(this._map){var t=this._map,i=[],e=this._canvas,n=e.getBoundingClientRect(),s=this._map.getZoom();if(this._latlngs&&this._heat){for(var r=0,a=this._latlngs.length;r<a;r++){var h=this._latlngs[r],o=t.latLngToContainerPoint(h);i.push([o.x,o.y,h.alt||h[2]||1])}this._heat.data(i).draw(this.options.minOpacity||.05)}this._frame=null}},_animateZoom:function(t){var i=this._map.getZoomScale(t.zoom),e=this._map._getCenterOffset(t.center)._multiplyBy(-i).subtract(this._map._getMapPanePos());t.DomUtil.setPosition(this._canvas,e)},_updateOptions:function(){this._heat.radius(this.options.radius||this._heat.defaultRadius,this.options.blur).gradient(this.options.gradient||this._heat.defaultGradient).max(this.options.max||1)},_initHeatmap:function(){var t=this._heat=simpleheat(this._canvas);this._updateOptions()},_updateHeat:function(){var t=this._map;if(t&&this._heat&&this._latlngs){var i=[];for(var e=0;e<this._latlngs.length;e++){var n=this._latlngs[e],s=t.latLngToContainerPoint(n);i.push([s.x,s.y,n[2]||1])}this._heat.data(i).draw(this.options.minOpacity||.05)}}});t.heatLayer=function(t,i){return new t.HeatLayer(t,i)},t.HeatLayer.addInitHook(function(){this._initHeatmap=function(){this._heat=simpleheat(this._canvas),this._updateOptions()}})});
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/simpleheat@0.4.0/simpleheat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
@@ -29,35 +103,81 @@
     const map = L.map('map', { preferCanvas: true }).setView([51.5, -0.1], 11);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap © CARTO',
-      maxZoom: 19
+      attribution: '© OpenStreetMap © CARTO', maxZoom: 19
     }).addTo(map);
 
-    const status = document.getElementById('status');
+    // Cool ocean gradient
+    const GRADIENT = {
+      0.0: '#000033',
+      0.2: '#003399',
+      0.4: '#0066cc',
+      0.6: '#00ccdd',
+      0.8: '#66eeff',
+      1.0: '#ffffff'
+    };
+
+    let allData = [];
+    let heatLayer = null;
+
+    function toggleControls() {
+      const c = document.getElementById('controls');
+      c.style.display = c.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function getFilteredPoints() {
+      const type = document.getElementById('filter-type').value;
+      const from = document.getElementById('filter-from').value;
+      const to = document.getElementById('filter-to').value;
+      const intensity = parseFloat(document.getElementById('ctrl-intensity').value) / 10;
+
+      return allData
+        .filter(p => type === 'all' || p.type === type)
+        .filter(p => !from || !p.date || p.date >= from)
+        .filter(p => !to   || !p.date || p.date <= to)
+        .map(p => [p.lat, p.lon, intensity]);
+    }
+
+    function updateHeat() {
+      const pts = getFilteredPoints();
+      const radius = parseInt(document.getElementById('ctrl-radius').value);
+      const blur = parseInt(document.getElementById('ctrl-blur').value);
+
+      if (heatLayer) map.removeLayer(heatLayer);
+      heatLayer = L.heatLayer(pts, {
+        radius, blur, maxZoom: 17, gradient: GRADIENT
+      }).addTo(map);
+
+      document.getElementById('status').textContent =
+        `${pts.length.toLocaleString()} points shown`;
+    }
+
+    function applyFilters() { updateHeat(); }
+
+    function populateTypeFilter(data) {
+      const types = [...new Set(data.map(p => p.type).filter(Boolean))].sort();
+      const sel = document.getElementById('filter-type');
+      types.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        sel.appendChild(opt);
+      });
+    }
 
     fetch('heatmap.json')
-      .then(r => {
-        if (!r.ok) throw new Error('heatmap.json not found: ' + r.status);
-        return r.json();
-      })
+      .then(r => { if (!r.ok) throw new Error('heatmap.json not found'); return r.json(); })
       .then(data => {
-        if (!data.length) { status.textContent = '⚠️ No points in heatmap.json'; return; }
+        allData = data;
+        populateTypeFilter(data);
 
-        const pts = data.map(p => [p.lat, p.lon, 0.5]);
-
-        if (typeof L.heatLayer === 'undefined') {
-          status.textContent = '❌ leaflet.heat failed to load';
-          return;
+        // Set date range defaults
+        const dates = data.map(p => p.date).filter(Boolean).sort();
+        if (dates.length) {
+          document.getElementById('filter-from').value = dates[0];
+          document.getElementById('filter-to').value = dates[dates.length - 1];
         }
 
-        L.heatLayer(pts, {
-          radius: 8,
-          blur: 10,
-          maxZoom: 17,
-          gradient: { 0.2: '#00f', 0.5: '#ff6600', 1.0: '#f00' }
-        }).addTo(map);
-
-        // Auto-fit map to your data
+        // Auto-fit map
         const lats = data.map(p => p.lat);
         const lons = data.map(p => p.lon);
         map.fitBounds([
@@ -65,10 +185,12 @@
           [Math.max(...lats), Math.max(...lons)]
         ]);
 
-        status.textContent = `✅ ${data.length.toLocaleString()} GPS points loaded`;
-        setTimeout(() => status.style.display = 'none', 3000);
+        updateHeat();
       })
-      .catch(e => { status.textContent = '❌ ' + e.message; console.error(e); });
+      .catch(e => {
+        document.getElementById('status').textContent = '❌ ' + e.message;
+        console.error(e);
+      });
   </script>
 </body>
 </html>
