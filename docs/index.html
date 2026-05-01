@@ -290,10 +290,15 @@
 
         const allPts = allData.flatMap(a => safePoints(a));
         if (allPts.length > 0) {
-          map.fitBounds([
-            [Math.min(...allPts.map(p => p[0])), Math.min(...allPts.map(p => p[1]))],
-            [Math.max(...allPts.map(p => p[0])), Math.max(...allPts.map(p => p[1]))]
-          ]);
+          let minLat = Infinity, minLon = Infinity;
+          let maxLat = -Infinity, maxLon = -Infinity;
+          for (const p of allPts) {
+            if (p[0] < minLat) minLat = p[0];
+            if (p[0] > maxLat) maxLat = p[0];
+            if (p[1] < minLon) minLon = p[1];
+            if (p[1] > maxLon) maxLon = p[1];
+          }
+          map.fitBounds([[minLat, minLon], [maxLat, maxLon]]);
         }
 
         redraw();
