@@ -2,8 +2,11 @@ name: Sync Garmin Heatmap
 
 on:
   schedule:
-    - cron: '0 */4 * * *'   # every 4 hours
-  workflow_dispatch:          # also allows manual trigger
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # ← fixes the warning
 
 jobs:
   sync:
