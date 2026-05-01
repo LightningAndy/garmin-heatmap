@@ -30,35 +30,28 @@
     input[type=range] { accent-color: #0cf; width: 100%; }
     .val-display { float: right; color: #7df; font-size: 11px; }
 
-    .toggle-row {
-      display: flex; gap: 8px; margin-bottom: 12px;
-    }
+    .toggle-row { display: flex; gap: 8px; margin-bottom: 12px; }
     .toggle-btn {
-      flex: 1; padding: 7px 0; border-radius: 8px; border: 1px solid rgba(0,200,255,0.25);
-      background: rgba(0,30,60,0.6); color: #7df; font-size: 12px;
-      cursor: pointer; text-align: center; transition: all 0.2s;
+      flex: 1; padding: 7px 0; border-radius: 8px;
+      border: 1px solid rgba(0,200,255,0.25);
+      background: rgba(0,30,60,0.6); color: #7df;
+      font-size: 12px; cursor: pointer; text-align: center; transition: all 0.2s;
     }
-    .toggle-btn.active {
-      background: rgba(0,150,255,0.3); border-color: #0cf; color: #fff;
-    }
+    .toggle-btn.active { background: rgba(0,150,255,0.3); border-color: #0cf; color: #fff; }
 
     #status {
       position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
       background: rgba(0,0,0,0.75); color: #7df;
       padding: 6px 16px; border-radius: 20px;
       font-family: sans-serif; font-size: 12px; z-index: 9999;
-      border: 1px solid rgba(0,200,255,0.2);
-      white-space: nowrap;
+      border: 1px solid rgba(0,200,255,0.2); white-space: nowrap;
     }
-
     #toggle-btn {
       position: fixed; top: 12px; right: 12px; z-index: 9999;
       background: rgba(5,10,30,0.9); border: 1px solid rgba(0,200,255,0.2);
       color: #7df; border-radius: 8px; padding: 7px 12px;
       font-size: 12px; cursor: pointer; font-family: sans-serif;
     }
-
-    .heat-only { display: none; }
   </style>
 </head>
 <body>
@@ -68,17 +61,15 @@
   <div id="controls">
     <h3>🗺 Garmin Heatmap</h3>
 
-    <!-- View mode toggle -->
     <div class="ctrl-group">
       <label>View Mode</label>
       <div class="toggle-row">
-        <div class="toggle-btn active" id="btn-heat" onclick="setMode('heat')">🔥 Heatmap</div>
+        <div class="toggle-btn active" id="btn-heat" onclick="setMode('heat')">🔥 Heat</div>
         <div class="toggle-btn" id="btn-routes" onclick="setMode('routes')">🛤 Routes</div>
         <div class="toggle-btn" id="btn-both" onclick="setMode('both')">Both</div>
       </div>
     </div>
 
-    <!-- Filters -->
     <div class="ctrl-group">
       <label>Activity Type</label>
       <select id="filter-type" onchange="applyFilters()">
@@ -94,7 +85,6 @@
       <input type="date" id="filter-to" onchange="applyFilters()">
     </div>
 
-    <!-- Heatmap controls -->
     <div id="heat-controls">
       <div class="ctrl-group">
         <label>Radius <span class="val-display" id="radius-val">8</span></label>
@@ -113,10 +103,9 @@
       </div>
     </div>
 
-    <!-- Route controls -->
     <div id="route-controls" style="display:none">
       <div class="ctrl-group">
-        <label>Line Opacity <span class="val-display" id="opacity-val">0.6</span></label>
+        <label>Opacity <span class="val-display" id="opacity-val">0.6</span></label>
         <input type="range" id="ctrl-opacity" min="1" max="10" value="6"
           oninput="document.getElementById('opacity-val').textContent=(this.value/10).toFixed(1); redraw()">
       </div>
@@ -145,19 +134,22 @@
       0.6: '#00ccdd', 0.8: '#66eeff', 1.0: '#ffffff'
     };
 
-    // Colours per activity type for route mode
     const TYPE_COLOURS = {
-      running:            '#00cfff',
-      cycling:            '#ff6b35',
-      swimming:           '#00ff99',
-      hiking:             '#ffdd57',
-      walking:            '#cc99ff',
-      trail_running:      '#00ffcc',
-      road_biking:        '#ff9900',
-      mountain_biking:    '#ff5500',
-      unknown:            '#aaaaaa',
+      running: '#00cfff', cycling: '#ff6b35', swimming: '#00ff99',
+      hiking: '#ffdd57', walking: '#cc99ff', trail_running: '#00ffcc',
+      road_biking: '#ff9900', mountain_biking: '#ff5500', unknown: '#aaaaaa'
     };
     function typeColour(t) { return TYPE_COLOURS[t] || '#88ccff'; }
+
+    // ── key fix: always return a clean array of valid [lat,lon] pairs ──
+    function safePoints(activity) {
+      if (!activity || !Array.isArray(activity.points)) return [];
+      return activity.points.filter(p =>
+        Array.isArray(p) && p.length >= 2 &&
+        typeof p[0] === 'number' && typeof p[1] === 'number' &&
+        isFinite(p[0]) && isFinite(p[1])
+      );
+    }
 
     let allData = [];
     let heatLayer = null;
@@ -171,9 +163,9 @@
 
     function setMode(m) {
       mode = m;
-      ['heat','routes','both'].forEach(x => {
-        document.getElementById('btn-'+x).classList.toggle('active', x === m);
-      });
+      ['heat','routes','both'].forEach(x =>
+        document.getElementById('btn-'+x).classList.toggle('active', x === m)
+      );
       document.getElementById('heat-controls').style.display  = (m === 'routes') ? 'none' : 'block';
       document.getElementById('route-controls').style.display = (m === 'heat')   ? 'none' : 'block';
       redraw();
@@ -184,9 +176,9 @@
       const from = document.getElementById('filter-from').value;
       const to   = document.getElementById('filter-to').value;
       return allData.filter(a =>
-        (type === 'all' || a.type === type) &&
-        (!from || a.date >= from) &&
-        (!to   || a.date <= to)
+        a && (type === 'all' || a.type === type) &&
+        (!from || !a.date || a.date >= from) &&
+        (!to   || !a.date || a.date <= to)
       );
     }
 
@@ -194,36 +186,39 @@
       const filtered = getFiltered();
       const intensity = parseFloat(document.getElementById('ctrl-intensity').value) / 10;
 
-      // --- Heatmap ---
+      // Heatmap
       if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
       if (mode === 'heat' || mode === 'both') {
-        const pts = filtered.flatMap(a => a.points.map(p => [p[0], p[1], intensity]));
-        heatLayer = L.heatLayer(pts, {
-          radius:   parseInt(document.getElementById('ctrl-radius').value),
-          blur:     parseInt(document.getElementById('ctrl-blur').value),
-          maxZoom:  17,
-          gradient: GRADIENT
-        }).addTo(map);
+        const pts = filtered.flatMap(a =>
+          safePoints(a).map(p => [p[0], p[1], intensity])
+        );
+        if (pts.length > 0) {
+          heatLayer = L.heatLayer(pts, {
+            radius:  parseInt(document.getElementById('ctrl-radius').value),
+            blur:    parseInt(document.getElementById('ctrl-blur').value),
+            maxZoom: 17,
+            gradient: GRADIENT
+          }).addTo(map);
+        }
       }
 
-      // --- Routes ---
+      // Routes
       routeLayer.clearLayers();
       if (mode === 'routes' || mode === 'both') {
         const opacity = parseFloat(document.getElementById('ctrl-opacity').value) / 10;
         const weight  = parseFloat(document.getElementById('ctrl-weight').value) / 10;
         filtered.forEach(a => {
-          if (!a.points.length) return;
-          L.polyline(a.points, {
-            color:   typeColour(a.type),
-            weight,
-            opacity,
-            smoothFactor: 1
-          }).bindTooltip(`${a.name}<br>${a.date} · ${a.type}`, { sticky: true })
-            .addTo(routeLayer);
+          const pts = safePoints(a);
+          if (pts.length < 2) return;
+          L.polyline(pts, {
+            color: typeColour(a.type), weight, opacity, smoothFactor: 1
+          })
+          .bindTooltip(`${a.name || ''}<br>${a.date || ''} · ${a.type || ''}`, { sticky: true })
+          .addTo(routeLayer);
         });
       }
 
-      const totalPts = filtered.reduce((s, a) => s + a.points.length, 0);
+      const totalPts = filtered.reduce((s, a) => s + safePoints(a).length, 0);
       document.getElementById('status').textContent =
         `${filtered.length} activities · ${totalPts.toLocaleString()} points`;
     }
@@ -235,7 +230,8 @@
       const sel = document.getElementById('filter-type');
       types.forEach(t => {
         const o = document.createElement('option');
-        o.value = t; o.textContent = t.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+        o.value = t;
+        o.textContent = t.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
         sel.appendChild(o);
       });
     }
@@ -243,22 +239,31 @@
     fetch('heatmap.json')
       .then(r => { if (!r.ok) throw new Error('heatmap.json not found'); return r.json(); })
       .then(data => {
-        allData = data;
-        populateTypeFilter(data);
+        // Handle both flat (old) and grouped (new) formats
+        if (Array.isArray(data) && data.length > 0 && data[0].points !== undefined) {
+          allData = data;
+        } else {
+          // Old flat format — wrap into a single activity
+          allData = [{ id: 'legacy', name: 'All Activities', type: 'running', date: '', points: data.map(p => [p.lat, p.lon]) }];
+        }
 
-        const dates = data.map(a => a.date).filter(Boolean).sort();
+        populateTypeFilter(allData);
+
+        const dates = allData.map(a => a.date).filter(Boolean).sort();
         if (dates.length) {
           document.getElementById('filter-from').value = dates[0];
-          document.getElementById('filter-to').value   = dates[dates.length-1];
+          document.getElementById('filter-to').value   = dates[dates.length - 1];
         }
 
-        const allPts = data.flatMap(a => a.points);
-        if (allPts.length) {
+        // Auto-fit to all valid points
+        const allPts = allData.flatMap(a => safePoints(a));
+        if (allPts.length > 0) {
           map.fitBounds([
-            [Math.min(...allPts.map(p=>p[0])), Math.min(...allPts.map(p=>p[1]))],
-            [Math.max(...allPts.map(p=>p[0])), Math.max(...allPts.map(p=>p[1]))]
+            [Math.min(...allPts.map(p => p[0])), Math.min(...allPts.map(p => p[1]))],
+            [Math.max(...allPts.map(p => p[0])), Math.max(...allPts.map(p => p[1]))]
           ]);
         }
+
         redraw();
       })
       .catch(e => {
