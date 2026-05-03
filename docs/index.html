@@ -283,11 +283,16 @@
 
        populateTypeFilter(allData);
 
-       const dates = allData.map(a => a.date).filter(Boolean).sort();
-       if (dates.length) {
-         document.getElementById('filter-from').value = dates[0];
-         document.getElementById('filter-to').value   = dates[dates.length - 1];
-       }
+       const dates = allData.map(a => a.date).filter(d => d && /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  if (dates.length) {
+  try {
+    document.getElementById('filter-from').value = dates[0];
+    document.getElementById('filter-to').value   = dates[dates.length - 1];
+  } catch(e) {
+    console.warn('Could not set date inputs:', e);
+  }
+}
+
 
        // Safe bounds calculation
        let minLat = Infinity, minLon = Infinity;
