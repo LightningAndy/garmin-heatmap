@@ -12,7 +12,6 @@ print("✅ Logged in to Garmin")
 try:
     with open("docs/heatmap.json") as f:
         existing = json.load(f)
-    # Support both old flat format and new grouped format
     if isinstance(existing, list) and existing and "points" in existing[0]:
         activities = existing
     else:
@@ -43,16 +42,14 @@ for act in raw_activities:
         trkpts = root.findall(".//gpx:trkpt", ns)
 
         points = []
-for p in trkpts:
-    lat = float(p.attrib["lat"])
-    lon = float(p.attrib["lon"])
-    # Extract timestamp if available
-    time_el = p.find("{http://www.topografix.com/GPX/1/1}time")
-    if time_el is not None and time_el.text:
-        points.append([lat, lon, time_el.text])
-    else:
-        points.append([lat, lon])
-
+        for p in trkpts:
+            lat = float(p.attrib["lat"])
+            lon = float(p.attrib["lon"])
+            time_el = p.find("{http://www.topografix.com/GPX/1/1}time")
+            if time_el is not None and time_el.text:
+                points.append([lat, lon, time_el.text])
+            else:
+                points.append([lat, lon])
 
         print(f"  ✅ {name} [{activity_type}] {activity_date}: {len(points)} points")
 
