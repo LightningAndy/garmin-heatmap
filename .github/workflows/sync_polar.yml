@@ -1,0 +1,32 @@
+name: Sync Polar Travel
+
+on:
+  schedule:
+    - cron: '30 */4 * * *'   # every 4 hours, offset 30min from Garmin sync
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: python convert_polar.py
+
+      - name: Commit updated heatmap
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/heatmap.json docs/polar_travel.json
+          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Update polar travel data"
+          git pull --rebase origin main
+          git push
