@@ -10,7 +10,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body, #map { height: 100%; background: #060a14; }
 
-    /* ── Bottom HUD ── */
     #hud {
       position: fixed;
       bottom: 20px;
@@ -24,7 +23,6 @@
       width: min(560px, 96vw);
     }
 
-    /* Row 1 — Title */
     #hud-title {
       font-family: 'Rajdhani', sans-serif;
       font-weight: 600;
@@ -36,7 +34,6 @@
       white-space: nowrap;
     }
 
-    /* Row 2 — Filters */
     #hud-filters {
       display: flex;
       gap: 8px;
@@ -68,7 +65,6 @@
       cursor: pointer;
     }
 
-    /* Row 3 — Status */
     #hud-status {
       font-family: 'Share Tech Mono', monospace;
       font-size: 10px;
@@ -77,7 +73,6 @@
       white-space: nowrap;
     }
 
-    /* Glassmorphism panel behind everything */
     #hud-panel {
       background: rgba(4, 10, 24, 0.82);
       border: 1px solid rgba(80, 180, 255, 0.15);
@@ -92,7 +87,6 @@
       box-shadow: 0 0 40px rgba(0, 120, 255, 0.08), 0 2px 16px rgba(0,0,0,0.4);
     }
 
-    /* ── Mobile: collapsible ── */
     #mobile-toggle {
       display: none;
       position: fixed;
@@ -112,7 +106,6 @@
       backdrop-filter: blur(12px);
     }
 
-    /* Mobile layout */
     @media (max-width: 600px) {
       #mobile-toggle { display: block; }
       #hud {
@@ -121,7 +114,6 @@
         width: 92vw;
       }
       #hud.open { display: flex; }
-
       #hud-filters {
         flex-direction: column;
         gap: 6px;
@@ -137,16 +129,11 @@
 <body>
   <div id="map"></div>
 
-  <!-- Mobile collapse button -->
   <button id="mobile-toggle" onclick="toggleMobile()">⊕ ANDY MAPS THE WORLD</button>
 
-  <!-- Main HUD -->
   <div id="hud">
     <div id="hud-panel">
-      <!-- Row 1: Title -->
       <div id="hud-title">Andy Maps The World</div>
-
-      <!-- Row 2: Filters -->
       <div id="hud-filters">
         <select id="filter-type" onchange="applyFilters()">
           <option value="all">All Activities</option>
@@ -154,8 +141,6 @@
         <input type="date" id="filter-from" onchange="applyFilters()">
         <input type="date" id="filter-to" onchange="applyFilters()">
       </div>
-
-      <!-- Row 3: Status -->
       <div id="hud-status">Initialising...</div>
     </div>
   </div>
@@ -175,8 +160,9 @@
       0.6: '#00ccdd', 0.8: '#66eeff', 1.0: '#ffffff'
     };
 
-    // Single route colour — light blue/white to match heatmap dots
-    const ROUTE_COLOUR = '#a8e6ff';
+    function routeColour(type) {
+      return type === 'travel' ? '#ffd27a' : '#a8e6ff';
+    }
 
     function safePoints(activity) {
       if (!activity || !Array.isArray(activity.points)) return [];
@@ -185,31 +171,6 @@
         typeof p[0] === 'number' && typeof p[1] === 'number' &&
         isFinite(p[0]) && isFinite(p[1])
       );
-    }
-
-    function splitRoute(pts, maxDistKm = 0.2) {
-      const segments = [];
-      let current = [];
-      for (let i = 0; i < pts.length; i++) {
-        if (i === 0) { current.push(pts[i]); continue; }
-        const [lat1, lon1] = pts[i-1];
-        const [lat2, lon2] = pts[i];
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat/2)**2 +
-                  Math.cos(lat1 * Math.PI/180) *
-                  Math.cos(lat2 * Math.PI/180) *
-                  Math.sin(dLon/2)**2;
-        const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        if (distKm > maxDistKm) {
-          if (current.length > 1) segments.push(current);
-          current = [pts[i]];
-        } else {
-          current.push(pts[i]);
-        }
-      }
-      if (current.length > 1) segments.push(current);
-      return segments;
     }
 
     let allData = [];
@@ -246,22 +207,19 @@
         }).addTo(map);
       }
 
-      // Routes
+      // Routes — each activity drawn as one continuous polyline, no gap splitting
       routeLayer.clearLayers();
       filtered.forEach(a => {
         const pts = safePoints(a);
         if (pts.length < 2) return;
-        const segments = splitRoute(pts, 0.2);
-        segments.forEach(seg => {
-          L.polyline(seg, {
-            color: ROUTE_COLOUR,
-            weight: 1.0,
-            opacity: 0.5,
-            smoothFactor: 1
-          })
-          .bindTooltip(`${a.name || ''}<br>${a.date || ''} · ${a.type || ''}`, { sticky: true })
-          .addTo(routeLayer);
-        });
+        L.polyline(pts, {
+          color: routeColour(a.type),
+          weight: 1.0,
+          opacity: 0.5,
+          smoothFactor: 1
+        })
+        .bindTooltip(`${a.name || ''}<br>${a.date || ''} · ${a.type || ''}`, { sticky: true })
+        .addTo(routeLayer);
       });
 
       const totalPts = filtered.reduce((s, a) => s + safePoints(a).length, 0);
@@ -324,3 +282,4 @@
   </script>
 </body>
 </html>
+
