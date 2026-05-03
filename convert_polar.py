@@ -1,59 +1,67 @@
-import json, glob, os
-import xml.etree.ElementTree as ET
+import json, os
+from datetime import datetime, timezone
 
-NS = "http://www.topografix.com/GPX/1/1"
+# Gap threshold to split into separate trips (6 hours)
+GAP_SECONDS = 6 * 60 * 60
+
 polar_activities = []
+file_index = 0
 
-gpx_files = sorted(glob.glob("polar/*.gpx"))
-print(f"Found {len(gpx_files)} GPX files in /polar/")
+# Process all .json files in the polar/ folder
+import glob
+json_files = sorted(glob.glob("polar/*.json"))
+print(f"Found {len(json_files)} JSON files in /polar/")
 
-for filepath in gpx_files:
+for filepath in json_files:
     filename = os.path.basename(filepath)
     try:
-        tree = ET.parse(filepath)
-        root = tree.getroot()
+        with open(filepath) as f:
+            data = json.load(f)
 
-        # Get track name if available
-        name_el = root.find(f".//{{{NS}}}name")
-        name = name_el.text if name_el is not None else filename.replace(".gpx", "")
+        # Support both {"locations": [...]} and bare [...]
+        locations = data["locations"] if isinstance(data, dict) and "locations" in data else data
+        locations = sorted(locations, key=lambda x: x["time"])
 
-        # Get all track points
-        trkpts = root.findall(f".//{{{NS}}}trkpt")
-
-        points = []
-        date = ""
-        for p in trkpts:
-            lat = float(p.attrib["lat"])
-            lon = float(p.attrib["lon"])
-            time_el = p.find(f"{{{NS}}}time")
-            if time_el is not None and time_el.text:
-                points.append([lat, lon, time_el.text])
-                if not date:
-                    date = time_el.text[:10]
-            else:
-                points.append([lat, lon])
-
-        if not points:
-            print(f"  ⚠️ {filename}: no points found, skipping")
+        if not locations:
+            print(f"  ⚠️ {filename}: empty, skipping")
             continue
 
-        activity_id = f"polar_{filename.replace('.gpx', '')}"
-        polar_activities.append({
-            "id": activity_id,
-            "name": name,
-            "type": "polar_travel",
-            "date": date,
-            "points": points
-        })
-        print(f"  ✅ {filename}: {len(points)} points, date {date}")
+        # Split into trips by time gap
+        trips = []
+        current = [locations[0]]
+        for loc in locations[1:]:
+            if loc["time"] - current[-1]["time"] > GAP_SECONDS:
+                trips.append(current)
+                current = [loc]
+            else:
+                current.append(loc)
+        trips.append(current)
+
+        print(f"  📍 {filename}: {len(locations)} points → {len(trips)} trips")
+
+        for trip in trips:
+            date = datetime.fromtimestamp(trip[0]["time"], tz=timezone.utc).strftime("%Y-%m-%d")
+            iso = lambda t: datetime.fromtimestamp(t, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+            points = [[loc["lat"], loc["lon"], iso(loc["time"])] for loc in trip]
+            activity_id = f"polar_{file_index}"
+            file_index += 1
+            polar_activities.append({
+                "id": activity_id,
+                "name": f"Polar Travel ({date})",
+                "type": "polar_travel",
+                "date": date,
+                "points": points
+            })
+            print(f"    ✅ Trip: {date} — {len(points)} points")
 
     except Exception as e:
         print(f"  ❌ {filename}: {e}")
 
 # Save polar_travel.json
+os.makedirs("docs", exist_ok=True)
 with open("docs/polar_travel.json", "w") as f:
     json.dump(polar_activities, f)
-print(f"\n📍 Saved {len(polar_activities)} polar activities to docs/polar_travel.json")
+print(f"\n📍 Saved {len(polar_activities)} polar trips to docs/polar_travel.json")
 
 # Merge into heatmap.json
 try:
@@ -62,7 +70,6 @@ try:
 except:
     heatmap = []
 
-# Remove old polar entries and re-add fresh
 heatmap = [a for a in heatmap if a.get("type") != "polar_travel"]
 heatmap = heatmap + polar_activities
 
