@@ -173,27 +173,41 @@
      );
    }
 
-   // Split by time gap — handles GPS dropout and underground gaps
-   // Falls back to one continuous line if no timestamps present
-   function splitByTime(pts, maxGapMinutes = 2) {
+   function splitRoute(pts, maxGapMinutes = 2, maxDistKm = 0.6) {
      const segments = [];
      let current = [];
 
      for (let i = 0; i < pts.length; i++) {
        if (i === 0) { current.push(pts[i]); continue; }
 
+       let shouldSplit = false;
+
+       // Check time gap
        const prevTime = pts[i-1][2];
        const currTime = pts[i][2];
-
        if (prevTime && currTime) {
          const gapMinutes = (new Date(currTime) - new Date(prevTime)) / 60000;
-         if (gapMinutes > maxGapMinutes) {
-           if (current.length > 1) segments.push(current);
-           current = [pts[i]];
-           continue;
-         }
+         if (gapMinutes > maxGapMinutes) shouldSplit = true;
        }
-       current.push(pts[i]);
+
+       // Check distance gap
+       const lat1 = pts[i-1][0], lon1 = pts[i-1][1];
+       const lat2 = pts[i][0],   lon2 = pts[i][1];
+       const dLat = (lat2 - lat1) * Math.PI / 180;
+       const dLon = (lon2 - lon1) * Math.PI / 180;
+       const a = Math.sin(dLat/2)**2 +
+                 Math.cos(lat1 * Math.PI/180) *
+                 Math.cos(lat2 * Math.PI/180) *
+                 Math.sin(dLon/2)**2;
+       const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+       if (distKm > maxDistKm) shouldSplit = true;
+
+       if (shouldSplit) {
+         if (current.length > 1) segments.push(current);
+         current = [pts[i]];
+       } else {
+         current.push(pts[i]);
+       }
      }
 
      if (current.length > 1) segments.push(current);
@@ -234,12 +248,12 @@
        }).addTo(map);
      }
 
-     // Routes — split by time gap, fallback to continuous if no timestamps
+     // Routes — split by time gap (2 min) or distance (600m)
      routeLayer.clearLayers();
      filtered.forEach(a => {
        const pts = safePoints(a);
        if (pts.length < 2) return;
-       const segments = splitByTime(pts, 2);
+       const segments = splitRoute(pts, 2, 0.6);
        segments.forEach(seg => {
          const latLons = seg.map(p => [p[0], p[1]]);
          L.polyline(latLons, {
@@ -284,15 +298,14 @@
        populateTypeFilter(allData);
 
        const dates = allData.map(a => a.date).filter(d => d && /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
-  if (dates.length) {
-  try {
-    document.getElementById('filter-from').value = dates[0];
-    document.getElementById('filter-to').value   = dates[dates.length - 1];
-  } catch(e) {
-    console.warn('Could not set date inputs:', e);
-  }
-}
-
+       if (dates.length) {
+         try {
+           document.getElementById('filter-from').value = dates[0];
+           document.getElementById('filter-to').value   = dates[dates.length - 1];
+         } catch(e) {
+           console.warn('Could not set date inputs:', e);
+         }
+       }
 
        // Safe bounds calculation
        let minLat = Infinity, minLon = Infinity;
