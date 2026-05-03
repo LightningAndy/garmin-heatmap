@@ -1,285 +1,315 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Andy Maps The World</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #map { height: 100%; background: #060a14; }
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <title>Andy Maps The World</title>
+ <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+ <link rel="preconnect" href="https://fonts.googleapis.com">
+ <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+ <style>
+   * { box-sizing: border-box; margin: 0; padding: 0; }
+   html, body, #map { height: 100%; background: #060a14; }
 
-    #hud {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 9999;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      width: min(560px, 96vw);
-    }
+   #hud {
+     position: fixed;
+     bottom: 20px;
+     left: 50%;
+     transform: translateX(-50%);
+     z-index: 9999;
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     gap: 8px;
+     width: min(560px, 96vw);
+   }
 
-    #hud-title {
-      font-family: 'Rajdhani', sans-serif;
-      font-weight: 600;
-      font-size: 15px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #e8f4ff;
-      text-shadow: 0 0 18px rgba(100, 220, 255, 0.6);
-      white-space: nowrap;
-    }
+   #hud-title {
+     font-family: 'Rajdhani', sans-serif;
+     font-weight: 600;
+     font-size: 15px;
+     letter-spacing: 0.18em;
+     text-transform: uppercase;
+     color: #e8f4ff;
+     text-shadow: 0 0 18px rgba(100, 220, 255, 0.6);
+     white-space: nowrap;
+   }
 
-    #hud-filters {
-      display: flex;
-      gap: 8px;
-      width: 100%;
-      align-items: center;
-    }
+   #hud-filters {
+     display: flex;
+     gap: 8px;
+     width: 100%;
+     align-items: center;
+   }
 
-    #hud-filters select,
-    #hud-filters input[type=date] {
-      flex: 1;
-      background: rgba(4, 12, 28, 0.88);
-      color: #9dd8f0;
-      border: 1px solid rgba(80, 180, 255, 0.25);
-      border-radius: 6px;
-      padding: 7px 10px;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 11px;
-      outline: none;
-      backdrop-filter: blur(12px);
-      transition: border-color 0.2s;
-      -webkit-appearance: none;
-    }
-    #hud-filters select:focus,
-    #hud-filters input[type=date]:focus {
-      border-color: rgba(80, 180, 255, 0.6);
-    }
-    #hud-filters input[type=date]::-webkit-calendar-picker-indicator {
-      filter: invert(0.7) sepia(1) hue-rotate(180deg);
-      cursor: pointer;
-    }
+   #hud-filters select,
+   #hud-filters input[type=date] {
+     flex: 1;
+     background: rgba(4, 12, 28, 0.88);
+     color: #9dd8f0;
+     border: 1px solid rgba(80, 180, 255, 0.25);
+     border-radius: 6px;
+     padding: 7px 10px;
+     font-family: 'Share Tech Mono', monospace;
+     font-size: 11px;
+     outline: none;
+     backdrop-filter: blur(12px);
+     transition: border-color 0.2s;
+     -webkit-appearance: none;
+   }
+   #hud-filters select:focus,
+   #hud-filters input[type=date]:focus {
+     border-color: rgba(80, 180, 255, 0.6);
+   }
+   #hud-filters input[type=date]::-webkit-calendar-picker-indicator {
+     filter: invert(0.7) sepia(1) hue-rotate(180deg);
+     cursor: pointer;
+   }
 
-    #hud-status {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 10px;
-      color: rgba(100, 180, 220, 0.6);
-      letter-spacing: 0.08em;
-      white-space: nowrap;
-    }
+   #hud-status {
+     font-family: 'Share Tech Mono', monospace;
+     font-size: 10px;
+     color: rgba(100, 180, 220, 0.6);
+     letter-spacing: 0.08em;
+     white-space: nowrap;
+   }
 
-    #hud-panel {
-      background: rgba(4, 10, 24, 0.82);
-      border: 1px solid rgba(80, 180, 255, 0.15);
-      border-radius: 14px;
-      padding: 12px 16px;
-      backdrop-filter: blur(16px);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      box-shadow: 0 0 40px rgba(0, 120, 255, 0.08), 0 2px 16px rgba(0,0,0,0.4);
-    }
+   #hud-panel {
+     background: rgba(4, 10, 24, 0.82);
+     border: 1px solid rgba(80, 180, 255, 0.15);
+     border-radius: 14px;
+     padding: 12px 16px;
+     backdrop-filter: blur(16px);
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     gap: 10px;
+     width: 100%;
+     box-shadow: 0 0 40px rgba(0, 120, 255, 0.08), 0 2px 16px rgba(0,0,0,0.4);
+   }
 
-    #mobile-toggle {
-      display: none;
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10000;
-      background: rgba(4, 10, 24, 0.92);
-      border: 1px solid rgba(80, 180, 255, 0.25);
-      border-radius: 10px;
-      padding: 8px 20px;
-      color: #9dd8f0;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      cursor: pointer;
-      backdrop-filter: blur(12px);
-    }
+   #mobile-toggle {
+     display: none;
+     position: fixed;
+     bottom: 20px;
+     left: 50%;
+     transform: translateX(-50%);
+     z-index: 10000;
+     background: rgba(4, 10, 24, 0.92);
+     border: 1px solid rgba(80, 180, 255, 0.25);
+     border-radius: 10px;
+     padding: 8px 20px;
+     color: #9dd8f0;
+     font-family: 'Share Tech Mono', monospace;
+     font-size: 11px;
+     letter-spacing: 0.1em;
+     cursor: pointer;
+     backdrop-filter: blur(12px);
+   }
 
-    @media (max-width: 600px) {
-      #mobile-toggle { display: block; }
-      #hud {
-        bottom: 60px;
-        display: none;
-        width: 92vw;
-      }
-      #hud.open { display: flex; }
-      #hud-filters {
-        flex-direction: column;
-        gap: 6px;
-      }
-      #hud-filters select,
-      #hud-filters input[type=date] {
-        width: 100%;
-        flex: unset;
-      }
-    }
-  </style>
+   @media (max-width: 600px) {
+     #mobile-toggle { display: block; }
+     #hud {
+       bottom: 60px;
+       display: none;
+       width: 92vw;
+     }
+     #hud.open { display: flex; }
+     #hud-filters {
+       flex-direction: column;
+       gap: 6px;
+     }
+     #hud-filters select,
+     #hud-filters input[type=date] {
+       width: 100%;
+       flex: unset;
+     }
+   }
+ </style>
 </head>
 <body>
-  <div id="map"></div>
+ <div id="map"></div>
 
-  <button id="mobile-toggle" onclick="toggleMobile()">⊕ ANDY MAPS THE WORLD</button>
+ <button id="mobile-toggle" onclick="toggleMobile()">⊕ ANDY MAPS THE WORLD</button>
 
-  <div id="hud">
-    <div id="hud-panel">
-      <div id="hud-title">Andy Maps The World</div>
-      <div id="hud-filters">
-        <select id="filter-type" onchange="applyFilters()">
-          <option value="all">All Activities</option>
-        </select>
-        <input type="date" id="filter-from" onchange="applyFilters()">
-        <input type="date" id="filter-to" onchange="applyFilters()">
-      </div>
-      <div id="hud-status">Initialising...</div>
-    </div>
-  </div>
+ <div id="hud">
+   <div id="hud-panel">
+     <div id="hud-title">Andy Maps The World</div>
+     <div id="hud-filters">
+       <select id="filter-type" onchange="applyFilters()">
+         <option value="all">All Activities</option>
+       </select>
+       <input type="date" id="filter-from" onchange="applyFilters()">
+       <input type="date" id="filter-to" onchange="applyFilters()">
+     </div>
+     <div id="hud-status">Initialising...</div>
+   </div>
+ </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/simpleheat@0.4.0/simpleheat.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+ <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/simpleheat@0.4.0/simpleheat.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
-  <script>
-    const map = L.map('map', { preferCanvas: true }).setView([51.5, -0.1], 11);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap © CARTO', maxZoom: 19
-    }).addTo(map);
+ <script>
+   const map = L.map('map', { preferCanvas: true }).setView([51.5, -0.1], 11);
+   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+     attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+   }).addTo(map);
 
-    const GRADIENT = {
-      0.0: '#000033', 0.2: '#003399', 0.4: '#0066cc',
-      0.6: '#00ccdd', 0.8: '#66eeff', 1.0: '#ffffff'
-    };
+   const GRADIENT = {
+     0.0: '#000033', 0.2: '#003399', 0.4: '#0066cc',
+     0.6: '#00ccdd', 0.8: '#66eeff', 1.0: '#ffffff'
+   };
 
-    function routeColour(type) {
-      return type === 'travel' ? '#ffd27a' : '#a8e6ff';
-    }
+   function routeColour(type) {
+     return type === 'travel' ? '#ffd27a' : '#a8e6ff';
+   }
 
-    function safePoints(activity) {
-      if (!activity || !Array.isArray(activity.points)) return [];
-      return activity.points.filter(p =>
-        Array.isArray(p) && p.length >= 2 &&
-        typeof p[0] === 'number' && typeof p[1] === 'number' &&
-        isFinite(p[0]) && isFinite(p[1])
-      );
-    }
+   function safePoints(activity) {
+     if (!activity || !Array.isArray(activity.points)) return [];
+     return activity.points.filter(p =>
+       Array.isArray(p) && p.length >= 2 &&
+       typeof p[0] === 'number' && typeof p[1] === 'number' &&
+       isFinite(p[0]) && isFinite(p[1])
+     );
+   }
 
-    let allData = [];
-    let heatLayer = null;
-    let routeLayer = L.layerGroup().addTo(map);
+   // Split by time gap — handles GPS dropout and underground gaps
+   // Falls back to one continuous line if no timestamps present
+   function splitByTime(pts, maxGapMinutes = 2) {
+     const segments = [];
+     let current = [];
 
-    function toggleMobile() {
-      document.getElementById('hud').classList.toggle('open');
-    }
+     for (let i = 0; i < pts.length; i++) {
+       if (i === 0) { current.push(pts[i]); continue; }
 
-    function getFiltered() {
-      const type = document.getElementById('filter-type').value;
-      const from = document.getElementById('filter-from').value;
-      const to   = document.getElementById('filter-to').value;
-      return allData.filter(a =>
-        a &&
-        (type === 'all' || a.type === type) &&
-        (!from || !a.date || a.date >= from) &&
-        (!to   || !a.date || a.date <= to)
-      );
-    }
+       const prevTime = pts[i-1][2];
+       const currTime = pts[i][2];
 
-    function redraw() {
-      const filtered = getFiltered();
+       if (prevTime && currTime) {
+         const gapMinutes = (new Date(currTime) - new Date(prevTime)) / 60000;
+         if (gapMinutes > maxGapMinutes) {
+           if (current.length > 1) segments.push(current);
+           current = [pts[i]];
+           continue;
+         }
+       }
+       current.push(pts[i]);
+     }
 
-      // Heatmap
-      if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
-      const heatPts = filtered.flatMap(a =>
-        safePoints(a).map(p => [p[0], p[1], 0.4])
-      );
-      if (heatPts.length > 0) {
-        heatLayer = L.heatLayer(heatPts, {
-          radius: 3, blur: 6, maxZoom: 17, gradient: GRADIENT
-        }).addTo(map);
-      }
+     if (current.length > 1) segments.push(current);
+     return segments;
+   }
 
-      // Routes — each activity drawn as one continuous polyline, no gap splitting
-      routeLayer.clearLayers();
-      filtered.forEach(a => {
-        const pts = safePoints(a);
-        if (pts.length < 2) return;
-        L.polyline(pts, {
-          color: routeColour(a.type),
-          weight: 1.0,
-          opacity: 0.5,
-          smoothFactor: 1
-        })
-        .bindTooltip(`${a.name || ''}<br>${a.date || ''} · ${a.type || ''}`, { sticky: true })
-        .addTo(routeLayer);
-      });
+   let allData = [];
+   let heatLayer = null;
+   let routeLayer = L.layerGroup().addTo(map);
 
-      const totalPts = filtered.reduce((s, a) => s + safePoints(a).length, 0);
-      document.getElementById('hud-status').textContent =
-        `${filtered.length} activities · ${totalPts.toLocaleString()} points`;
-    }
+   function toggleMobile() {
+     document.getElementById('hud').classList.toggle('open');
+   }
 
-    function applyFilters() { redraw(); }
+   function getFiltered() {
+     const type = document.getElementById('filter-type').value;
+     const from = document.getElementById('filter-from').value;
+     const to   = document.getElementById('filter-to').value;
+     return allData.filter(a =>
+       a &&
+       (type === 'all' || a.type === type) &&
+       (!from || !a.date || a.date >= from) &&
+       (!to   || !a.date || a.date <= to)
+     );
+   }
 
-    function populateTypeFilter(data) {
-      const types = [...new Set(data.map(a => a.type).filter(Boolean))].sort();
-      const sel = document.getElementById('filter-type');
-      types.forEach(t => {
-        const o = document.createElement('option');
-        o.value = t;
-        o.textContent = t.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
-        sel.appendChild(o);
-      });
-    }
+   function redraw() {
+     const filtered = getFiltered();
 
-    fetch('heatmap.json')
-      .then(r => { if (!r.ok) throw new Error('heatmap.json not found'); return r.json(); })
-      .then(data => {
-        if (Array.isArray(data) && data.length > 0 && data[0].points !== undefined) {
-          allData = data;
-        } else {
-          allData = [{ id: 'legacy', name: 'All Activities', type: 'running', date: '',
-            points: data.map(p => [p.lat, p.lon]) }];
-        }
+     // Heatmap
+     if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+     const heatPts = filtered.flatMap(a =>
+       safePoints(a).map(p => [p[0], p[1], 0.4])
+     );
+     if (heatPts.length > 0) {
+       heatLayer = L.heatLayer(heatPts, {
+         radius: 3, blur: 6, maxZoom: 17, gradient: GRADIENT
+       }).addTo(map);
+     }
 
-        populateTypeFilter(allData);
+     // Routes — split by time gap, fallback to continuous if no timestamps
+     routeLayer.clearLayers();
+     filtered.forEach(a => {
+       const pts = safePoints(a);
+       if (pts.length < 2) return;
+       const segments = splitByTime(pts, 2);
+       segments.forEach(seg => {
+         const latLons = seg.map(p => [p[0], p[1]]);
+         L.polyline(latLons, {
+           color: routeColour(a.type),
+           weight: 1.0,
+           opacity: 0.5,
+           smoothFactor: 1
+         })
+         .bindTooltip(`${a.name || ''}<br>${a.date || ''} · ${a.type || ''}`, { sticky: true })
+         .addTo(routeLayer);
+       });
+     });
 
-        const dates = allData.map(a => a.date).filter(Boolean).sort();
-        if (dates.length) {
-          document.getElementById('filter-from').value = dates[0];
-          document.getElementById('filter-to').value   = dates[dates.length - 1];
-        }
+     const totalPts = filtered.reduce((s, a) => s + safePoints(a).length, 0);
+     document.getElementById('hud-status').textContent =
+       `${filtered.length} activities · ${totalPts.toLocaleString()} points`;
+   }
 
-        // Safe bounds calculation
-        let minLat = Infinity, minLon = Infinity;
-        let maxLat = -Infinity, maxLon = -Infinity;
-        for (const a of allData) {
-          for (const p of safePoints(a)) {
-            if (p[0] < minLat) minLat = p[0];
-            if (p[0] > maxLat) maxLat = p[0];
-            if (p[1] < minLon) minLon = p[1];
-            if (p[1] > maxLon) maxLon = p[1];
-          }
-        }
-        if (isFinite(minLat)) {
-          map.fitBounds([[minLat, minLon], [maxLat, maxLon]]);
-        }
+   function applyFilters() { redraw(); }
 
-        redraw();
-      })
-      .catch(e => {
-        document.getElementById('hud-status').textContent = '❌ ' + e.message;
-        console.error(e);
-      });
-  </script>
+   function populateTypeFilter(data) {
+     const types = [...new Set(data.map(a => a.type).filter(Boolean))].sort();
+     const sel = document.getElementById('filter-type');
+     types.forEach(t => {
+       const o = document.createElement('option');
+       o.value = t;
+       o.textContent = t.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
+       sel.appendChild(o);
+     });
+   }
+
+   fetch('heatmap.json')
+     .then(r => { if (!r.ok) throw new Error('heatmap.json not found'); return r.json(); })
+     .then(data => {
+       if (Array.isArray(data) && data.length > 0 && data[0].points !== undefined) {
+         allData = data;
+       } else {
+         allData = [{ id: 'legacy', name: 'All Activities', type: 'running', date: '',
+           points: data.map(p => [p.lat, p.lon]) }];
+       }
+
+       populateTypeFilter(allData);
+
+       const dates = allData.map(a => a.date).filter(Boolean).sort();
+       if (dates.length) {
+         document.getElementById('filter-from').value = dates[0];
+         document.getElementById('filter-to').value   = dates[dates.length - 1];
+       }
+
+       // Safe bounds calculation
+       let minLat = Infinity, minLon = Infinity;
+       let maxLat = -Infinity, maxLon = -Infinity;
+       for (const a of allData) {
+         for (const p of safePoints(a)) {
+           if (p[0] < minLat) minLat = p[0];
+           if (p[0] > maxLat) maxLat = p[0];
+           if (p[1] < minLon) minLon = p[1];
+           if (p[1] > maxLon) maxLon = p[1];
+         }
+       }
+       if (isFinite(minLat)) {
+         map.fitBounds([[minLat, minLon], [maxLat, maxLon]]);
+       }
+
+       redraw();
+     })
+     .catch(e => {
+       document.getElementById('hud-status').textContent = '❌ ' + e.message;
+       console.error(e);
+     });
+ </script>
 </body>
 </html>
-
