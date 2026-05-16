@@ -1,0 +1,31 @@
+name: Build Chunks
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: python build_chunks.py
+
+      - name: Commit chunks
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add docs/heatmap_*.json docs/manifest.json
+          git rm --cached docs/heatmap.json 2>/dev/null || true
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Split into chunks"
+          git pull --rebase origin main
+          git push
