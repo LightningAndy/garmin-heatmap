@@ -184,7 +184,6 @@
 
         let shouldSplit = false;
 
-        // Check time gap
         const prevTime = pts[i-1][2];
         const currTime = pts[i][2];
         if (prevTime && currTime) {
@@ -192,7 +191,6 @@
           if (gapMinutes > maxGapMinutes) shouldSplit = true;
         }
 
-        // Check distance gap
         const lat1 = pts[i-1][0], lon1 = pts[i-1][1];
         const lat2 = pts[i][0],   lon2 = pts[i][1];
         const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -239,7 +237,6 @@
     function redraw() {
       const filtered = getFiltered();
 
-      // Heatmap
       if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
       const heatPts = filtered.flatMap(a =>
         safePoints(a).map(p => [p[0], p[1], 0.4])
@@ -250,7 +247,6 @@
         }).addTo(map);
       }
 
-      // Routes — polar_travel draws as one continuous line, others split by time/distance
       routeLayer.clearLayers();
       filtered.forEach(a => {
         const pts = safePoints(a);
@@ -289,9 +285,24 @@
       });
     }
 
-    fetch('heatmap.json')
-      .then(r => { if (!r.ok) throw new Error('heatmap.json not found'); return r.json(); })
-      .then(data => {
+    // Load manifest then fetch all chunks in parallel
+    fetch('manifest.json')
+      .then(r => { if (!r.ok) throw new Error('manifest.json not found'); return r.json(); })
+      .then(manifest => {
+        document.getElementById('hud-status').textContent =
+          `Loading ${manifest.chunks.length} chunk(s)...`;
+        return Promise.all(
+          manifest.chunks.map(chunk =>
+            fetch(chunk).then(r => {
+              if (!r.ok) throw new Error(`${chunk} not found`);
+              return r.json();
+            })
+          )
+        );
+      })
+      .then(chunkArrays => {
+        const data = chunkArrays.flat();
+
         if (Array.isArray(data) && data.length > 0 && data[0].points !== undefined) {
           allData = data;
         } else {
@@ -311,7 +322,6 @@
           }
         }
 
-        // Safe bounds calculation
         let minLat = Infinity, minLon = Infinity;
         let maxLat = -Infinity, maxLon = -Infinity;
         for (const a of allData) {
