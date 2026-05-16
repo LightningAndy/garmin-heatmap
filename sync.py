@@ -4,6 +4,42 @@ import xml.etree.ElementTree as ET
 
 CHUNK_SIZE_BYTES = 45 * 1024 * 1024
 
+def write_chunks(activities):
+    for cf in glob.glob("docs/heatmap_*.json"):
+        os.remove(cf)
+
+    chunks = []
+    current_chunk = []
+    current_size  = 0
+
+    for activity in activities:
+        estimated_size = len(json.dumps(activity))
+        if current_size + estimated_size > CHUNK_SIZE_BYTES and current_chunk:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_size  = 0
+        current_chunk.append(activity)
+        current_size += estimated_size
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    chunk_filenames = []
+    for i, chunk in enumerate(chunks):
+        filename = f"heatmap_{i+1}.json"
+        filepath = f"docs/{filename}"
+        with open(filepath, "w") as f:
+            json.dump(chunk, f)
+        size_mb = os.path.getsize(filepath) / 1024 / 1024
+        print(f"  📦 {filename}: {len(chunk)} activities, {size_mb:.1f}MB")
+        chunk_filenames.append(filename)
+
+    manifest = {"chunks": chunk_filenames}
+    with open("docs/manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
+    print(f"  📋 manifest.json updated — {len(chunk_filenames)} chunk(s)")
+
+
 email    = os.environ["GARMIN_EMAIL"]
 password = os.environ["GARMIN_PASSWORD"]
 
@@ -11,8 +47,7 @@ client = Garmin(email, password)
 client.login()
 print("✅ Logged in to Garmin")
 
-# Load all existing activities from chunks
-activities = []
+activities   = []
 existing_ids = set()
 
 os.makedirs("docs", exist_ok=True)
@@ -21,12 +56,10 @@ chunk_files = sorted(glob.glob("docs/heatmap_*.json"))
 if chunk_files:
     for cf in chunk_files:
         with open(cf) as f:
-            chunk_data = json.load(f)
-        activities.extend(chunk_data)
+            activities.extend(json.load(f))
     existing_ids = {a["id"] for a in activities}
     print(f"📍 {len(activities)} activities loaded from {len(chunk_files)} chunk(s)")
 else:
-    # Fall back to old heatmap.json if chunks don't exist yet
     try:
         with open("docs/heatmap.json") as f:
             existing = json.load(f)
@@ -37,7 +70,6 @@ else:
     except:
         print("📍 Starting fresh")
 
-# Fetch new activities from Garmin
 raw_activities = client.get_activities(0, 100)
 print(f"🏃 Found {len(raw_activities)} activities from Garmin")
 
@@ -83,44 +115,7 @@ for act in raw_activities:
 if new_count == 0:
     print("No new activities — skipping chunk rewrite")
 else:
-    # Rewrite all chunks
     write_chunks(activities)
 
 total_points = sum(len(a["points"]) for a in activities)
 print(f"\n✅ Done. {len(activities)} activities, {total_points} total points")
-
-def write_chunks(activities):
-    # Remove old chunk files
-    for cf in glob.glob("docs/heatmap_*.json"):
-        os.remove(cf)
-
-    chunks = []
-    current_chunk = []
-    current_size  = 0
-
-    for activity in activities:
-        estimated_size = len(json.dumps(activity))
-        if current_size + estimated_size > CHUNK_SIZE_BYTES and current_chunk:
-            chunks.append(current_chunk)
-            current_chunk = []
-            current_size  = 0
-        current_chunk.append(activity)
-        current_size += estimated_size
-
-    if current_chunk:
-        chunks.append(current_chunk)
-
-    chunk_filenames = []
-    for i, chunk in enumerate(chunks):
-        filename = f"heatmap_{i+1}.json"
-        filepath = f"docs/{filename}"
-        with open(filepath, "w") as f:
-            json.dump(chunk, f)
-        size_mb = os.path.getsize(filepath) / 1024 / 1024
-        print(f"  📦 {filename}: {len(chunk)} activities, {size_mb:.1f}MB")
-        chunk_filenames.append(filename)
-
-    manifest = {"chunks": chunk_filenames}
-    with open("docs/manifest.json", "w") as f:
-        json.dump(manifest, f, indent=2)
-    print(f"  📋 manifest.json updated — {len(chunk_filenames)} chunk(s)")
