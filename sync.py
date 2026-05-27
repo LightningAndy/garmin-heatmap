@@ -70,7 +70,7 @@ else:
     except:
         print("📍 Starting fresh")
 
-raw_activities = client.get_activities(0, 100)
+raw_activities = client.get_activities(1000, 1000)
 print(f"🏃 Found {len(raw_activities)} activities from Garmin")
 
 new_count = 0
