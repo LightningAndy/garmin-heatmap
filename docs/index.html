@@ -1,21 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Andy Maps The World</title>
-  <link href="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: #060a14; overflow: hidden; }
+    html, body, #map { height: 100%; background: #060a14; }
 
-    #map {
-      position: absolute;
-      inset: 0;
-    }
-
-    /* ── HUD ── */
     #hud {
       position: fixed;
       bottom: 20px;
@@ -27,22 +21,6 @@
       align-items: center;
       gap: 8px;
       width: min(560px, 96vw);
-      pointer-events: none;
-    }
-
-    #hud-panel {
-      pointer-events: all;
-      background: rgba(4, 10, 24, 0.82);
-      border: 1px solid rgba(80, 180, 255, 0.15);
-      border-radius: 14px;
-      padding: 12px 16px;
-      backdrop-filter: blur(16px);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      width: 100%;
-      box-shadow: 0 0 40px rgba(0, 120, 255, 0.08), 0 2px 16px rgba(0,0,0,0.4);
     }
 
     #hud-title {
@@ -82,7 +60,6 @@
     #hud-filters input[type=date]:focus {
       border-color: rgba(80, 180, 255, 0.6);
     }
-    #hud-filters input[type=date] { color-scheme: dark; }
     #hud-filters input[type=date]::-webkit-calendar-picker-indicator {
       filter: invert(0.7) sepia(1) hue-rotate(180deg);
       cursor: pointer;
@@ -96,24 +73,20 @@
       white-space: nowrap;
     }
 
-    /* Loading bar */
-    #loading-bar {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: rgba(0, 180, 255, 0.15);
-      z-index: 99999;
-      transition: opacity 0.5s;
-    }
-    #loading-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #0066cc, #00ccdd, #66eeff);
-      width: 0%;
-      transition: width 0.3s ease;
-      box-shadow: 0 0 8px rgba(0, 200, 255, 0.6);
+    #hud-panel {
+      background: rgba(4, 10, 24, 0.82);
+      border: 1px solid rgba(80, 180, 255, 0.15);
+      border-radius: 14px;
+      padding: 12px 16px;
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      box-shadow: 0 0 40px rgba(0, 120, 255, 0.08), 0 2px 16px rgba(0,0,0,0.4);
     }
 
-    /* Mobile toggle */
     #mobile-toggle {
       display: none;
       position: fixed;
@@ -135,22 +108,28 @@
 
     @media (max-width: 600px) {
       #mobile-toggle { display: block; }
-      #hud { bottom: 60px; display: none; width: 92vw; }
+      #hud {
+        bottom: 60px;
+        display: none;
+        width: 92vw;
+      }
       #hud.open { display: flex; }
-      #hud-filters { flex-direction: column; gap: 6px; }
-      #hud-filters select, #hud-filters input[type=date] { width: 100%; flex: unset; }
+      #hud-filters {
+        flex-direction: column;
+        gap: 6px;
+      }
+      #hud-filters select,
+      #hud-filters input[type=date] {
+        width: 100%;
+        flex: unset;
+      }
     }
-
-    /* MapLibre attribution */
-    .maplibregl-ctrl-attrib { font-size: 9px !important; }
-    .maplibregl-ctrl-bottom-right { bottom: 80px !important; }
   </style>
 </head>
 <body>
-
-  <div id="loading-bar"><div id="loading-bar-fill"></div></div>
   <div id="map"></div>
-  <button id="mobile-toggle" onclick="document.getElementById('hud').classList.toggle('open')">⊕ ANDY MAPS THE WORLD</button>
+
+  <button id="mobile-toggle" onclick="toggleMobile()">⊕ ANDY MAPS THE WORLD</button>
 
   <div id="hud">
     <div id="hud-panel">
@@ -166,215 +145,83 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/maplibre-gl@4.1.2/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/simpleheat@0.4.0/simpleheat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
   <script>
-    // ── Constants ──
-    const ROUTE_COLOUR        = '#a8e6ff';
-    const TRAVEL_COLOUR       = '#ffd27a';
-    const POLAR_COLOUR        = '#a8e6ff';
-    const MAX_GAP_MINUTES     = 2;
-    const MAX_GAP_KM          = 0.6;
+    const map = L.map('map', { preferCanvas: true }).setView([51.5, -0.1], 11);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+    }).addTo(map);
 
-    // ── Map init ──
-    const map = new maplibregl.Map({
-      container: 'map',
-      style: {
-        version: 8,
-        sources: {
-          'carto-dark': {
-            type: 'raster',
-            tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-                    'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
-                    'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png'],
-            tileSize: 256,
-            attribution: '© OpenStreetMap © CARTO'
-          }
-        },
-        layers: [{ id: 'background', type: 'raster', source: 'carto-dark' }]
-      },
-      center: [0, 30],
-      zoom: 2,
-      maxZoom: 18
-    });
+    const GRADIENT = {
+      0.0: '#000033', 0.2: '#003399', 0.4: '#0066cc',
+      0.6: '#00ccdd', 0.8: '#66eeff', 1.0: '#ffffff'
+    };
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-    // ── State ──
-    let allData      = [];
-    let filteredData = [];
-    let sourcesAdded = false;
-
-    // ── Loading bar ──
-    function setProgress(pct) {
-      document.getElementById('loading-bar-fill').style.width = pct + '%';
-      if (pct >= 100) setTimeout(() => { document.getElementById('loading-bar').style.opacity = '0'; }, 600);
+    function routeColour(type) {
+      if (type === 'travel') return '#ffd27a';
+      if (type === 'polar_travel') return '#a8e6ff';
+      return '#a8e6ff';
     }
 
-    // ── Route splitting (same logic as before) ──
-    function haversineKm(lat1, lon1, lat2, lon2) {
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    function safePoints(activity) {
+      if (!activity || !Array.isArray(activity.points)) return [];
+      return activity.points.filter(p =>
+        Array.isArray(p) && p.length >= 2 &&
+        typeof p[0] === 'number' && typeof p[1] === 'number' &&
+        isFinite(p[0]) && isFinite(p[1])
+      );
     }
 
-    function splitRoute(pts, isPolar) {
-      if (isPolar) return [pts];
+    function splitRoute(pts, maxGapMinutes = 2, maxDistKm = 0.6) {
       const segments = [];
       let current = [];
+
       for (let i = 0; i < pts.length; i++) {
         if (i === 0) { current.push(pts[i]); continue; }
-        let split = false;
-        const prev = pts[i-1], curr = pts[i];
-        if (prev[2] && curr[2]) {
-          const gapMin = (new Date(curr[2]) - new Date(prev[2])) / 60000;
-          if (gapMin > MAX_GAP_MINUTES) split = true;
+
+        let shouldSplit = false;
+
+        const prevTime = pts[i-1][2];
+        const currTime = pts[i][2];
+        if (prevTime && currTime) {
+          const gapMinutes = (new Date(currTime) - new Date(prevTime)) / 60000;
+          if (gapMinutes > maxGapMinutes) shouldSplit = true;
         }
-        if (!split && haversineKm(prev[0], prev[1], curr[0], curr[1]) > MAX_GAP_KM) split = true;
-        if (split) { if (current.length > 1) segments.push(current); current = [curr]; }
-        else current.push(curr);
+
+        const lat1 = pts[i-1][0], lon1 = pts[i-1][1];
+        const lat2 = pts[i][0],   lon2 = pts[i][1];
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 +
+                  Math.cos(lat1 * Math.PI/180) *
+                  Math.cos(lat2 * Math.PI/180) *
+                  Math.sin(dLon/2)**2;
+        const distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        if (distKm > maxDistKm) shouldSplit = true;
+
+        if (shouldSplit) {
+          if (current.length > 1) segments.push(current);
+          current = [pts[i]];
+        } else {
+          current.push(pts[i]);
+        }
       }
+
       if (current.length > 1) segments.push(current);
       return segments;
     }
 
-    // ── Build GeoJSON from filtered data ──
-    function buildGeoJSON(data) {
-      const lineFeatures = [];
-      const heatPoints   = [];
+    let allData = [];
+    let heatLayer = null;
+    let routeLayer = L.layerGroup().addTo(map);
 
-      data.forEach(activity => {
-        if (!Array.isArray(activity.points) || activity.points.length < 2) return;
-        const isPolar = activity.type === 'polar_travel';
-        const colour  = activity.type === 'travel' ? TRAVEL_COLOUR
-                      : isPolar                    ? POLAR_COLOUR
-                      : ROUTE_COLOUR;
-
-        const validPts = activity.points.filter(p =>
-          Array.isArray(p) && p.length >= 2 &&
-          typeof p[0] === 'number' && typeof p[1] === 'number' &&
-          isFinite(p[0]) && isFinite(p[1])
-        );
-
-        if (validPts.length < 2) return;
-
-        // Heat points — [lon, lat] for GeoJSON
-        validPts.forEach(p => heatPoints.push([p[1], p[0]]));
-
-        // Route segments
-        const segments = splitRoute(validPts, isPolar);
-        segments.forEach(seg => {
-          if (seg.length < 2) return;
-          lineFeatures.push({
-            type: 'Feature',
-            properties: {
-              colour,
-              name:  activity.name  || '',
-              date:  activity.date  || '',
-              atype: activity.type  || ''
-            },
-            geometry: {
-              type: 'LineString',
-              // GeoJSON is [lon, lat]
-              coordinates: seg.map(p => [p[1], p[0]])
-            }
-          });
-        });
-      });
-
-      return { lineFeatures, heatPoints };
+    function toggleMobile() {
+      document.getElementById('hud').classList.toggle('open');
     }
 
-    // ── Add / update MapLibre sources and layers ──
-    function addSources() {
-      // Routes source
-      map.addSource('routes', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      });
-
-      // Heatmap source
-      map.addSource('heat', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] }
-      });
-
-      // Heatmap layer
-      map.addLayer({
-        id: 'heatmap-layer',
-        type: 'heatmap',
-        source: 'heat',
-        maxzoom: 18,
-        paint: {
-          'heatmap-weight': 0.4,
-          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.3, 10, 1.5],
-          'heatmap-radius':    ['interpolate', ['linear'], ['zoom'], 0, 2,   10, 8,   14, 14],
-          'heatmap-opacity':   ['interpolate', ['linear'], ['zoom'], 10, 1,  16, 0.6],
-          'heatmap-color': [
-            'interpolate', ['linear'], ['heatmap-density'],
-            0,   'rgba(0,0,51,0)',
-            0.2, 'rgba(0,51,153,0.8)',
-            0.4, 'rgba(0,102,204,0.9)',
-            0.6, 'rgba(0,204,221,1)',
-            0.8, 'rgba(102,238,255,1)',
-            1,   'rgba(255,255,255,1)'
-          ]
-        }
-      });
-
-      // Route lines layer
-      map.addLayer({
-        id: 'routes-layer',
-        type: 'line',
-        source: 'routes',
-        layout: {
-          'line-join': 'round',
-          'line-cap':  'round'
-        },
-        paint: {
-          'line-color':   ['get', 'colour'],
-          'line-width':   ['interpolate', ['linear'], ['zoom'], 5, 0.5, 10, 1.0, 14, 1.5],
-          'line-opacity': 0.55
-        }
-      });
-
-      // Hover tooltip
-      const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
-      map.on('mouseenter', 'routes-layer', e => {
-        map.getCanvas().style.cursor = 'pointer';
-        const p = e.features[0].properties;
-        popup.setLngLat(e.lngLat)
-             .setHTML(`<div style="font-family:monospace;font-size:11px;color:#9dd8f0;background:rgba(4,10,24,0.9);padding:6px 10px;border-radius:6px;border:1px solid rgba(80,180,255,0.2)">${p.name}<br>${p.date} · ${p.atype}</div>`)
-             .addTo(map);
-      });
-      map.on('mouseleave', 'routes-layer', () => {
-        map.getCanvas().style.cursor = '';
-        popup.remove();
-      });
-
-      sourcesAdded = true;
-    }
-
-    function updateSources(data) {
-      const { lineFeatures, heatPoints } = buildGeoJSON(data);
-
-      map.getSource('routes').setData({
-        type: 'FeatureCollection',
-        features: lineFeatures
-      });
-
-      map.getSource('heat').setData({
-        type: 'FeatureCollection',
-        features: heatPoints.map(pt => ({ type: 'Feature', geometry: { type: 'Point', coordinates: pt }, properties: {} }))
-      });
-
-      const total = data.reduce((s, a) => s + (Array.isArray(a.points) ? a.points.length : 0), 0);
-      document.getElementById('hud-status').textContent =
-        `${data.length} activities · ${total.toLocaleString()} points`;
-    }
-
-    // ── Filters ──
     function getFiltered() {
       const type = document.getElementById('filter-type').value;
       const from = document.getElementById('filter-from').value;
@@ -387,102 +234,114 @@
       );
     }
 
-    function applyFilters() {
-      filteredData = getFiltered();
-      if (sourcesAdded) updateSources(filteredData);
+    function redraw() {
+      const filtered = getFiltered();
+
+      if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+      const heatPts = filtered.flatMap(a =>
+        safePoints(a).map(p => [p[0], p[1], 0.4])
+      );
+      if (heatPts.length > 0) {
+        heatLayer = L.heatLayer(heatPts, {
+          radius: 3, blur: 6, maxZoom: 17, gradient: GRADIENT
+        }).addTo(map);
+      }
+
+      routeLayer.clearLayers();
+      filtered.forEach(a => {
+        const pts = safePoints(a);
+        if (pts.length < 2) return;
+        const segments = a.type === 'polar_travel'
+          ? [pts]
+          : splitRoute(pts, 2, 0.6);
+        segments.forEach(seg => {
+          const latLons = seg.map(p => [p[0], p[1]]);
+          L.polyline(latLons, {
+            color: routeColour(a.type),
+            weight: 1.0,
+            opacity: 0.5,
+            smoothFactor: 1
+          })
+          .bindTooltip(`${a.name || ''}<br>${a.date || ''} · ${a.type || ''}`, { sticky: true })
+          .addTo(routeLayer);
+        });
+      });
+
+      const totalPts = filtered.reduce((s, a) => s + safePoints(a).length, 0);
+      document.getElementById('hud-status').textContent =
+        `${filtered.length} activities · ${totalPts.toLocaleString()} points`;
     }
+
+    function applyFilters() { redraw(); }
 
     function populateTypeFilter(data) {
       const types = [...new Set(data.map(a => a.type).filter(Boolean))].sort();
-      const sel   = document.getElementById('filter-type');
+      const sel = document.getElementById('filter-type');
       types.forEach(t => {
         const o = document.createElement('option');
         o.value = t;
-        o.textContent = t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        o.textContent = t.replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
         sel.appendChild(o);
       });
     }
 
-    // ── Fit bounds safely ──
-    function fitBounds(data) {
-      let minLat = Infinity, minLon = Infinity, maxLat = -Infinity, maxLon = -Infinity;
-      data.forEach(a => {
-        if (!Array.isArray(a.points)) return;
-        a.points.forEach(p => {
-          if (!Array.isArray(p) || p.length < 2) return;
-          if (!isFinite(p[0]) || !isFinite(p[1])) return;
-          if (p[0] < minLat) minLat = p[0];
-          if (p[0] > maxLat) maxLat = p[0];
-          if (p[1] < minLon) minLon = p[1];
-          if (p[1] > maxLon) maxLon = p[1];
-        });
+    // Load manifest then fetch all chunks in parallel
+    fetch('manifest.json')
+      .then(r => { if (!r.ok) throw new Error('manifest.json not found'); return r.json(); })
+      .then(manifest => {
+        document.getElementById('hud-status').textContent =
+          `Loading ${manifest.chunks.length} chunk(s)...`;
+        return Promise.all(
+          manifest.chunks.map(chunk =>
+            fetch(chunk).then(r => {
+              if (!r.ok) throw new Error(`${chunk} not found`);
+              return r.json();
+            })
+          )
+        );
+      })
+      .then(chunkArrays => {
+        const data = chunkArrays.flat();
+
+        if (Array.isArray(data) && data.length > 0 && data[0].points !== undefined) {
+          allData = data;
+        } else {
+          allData = [{ id: 'legacy', name: 'All Activities', type: 'running', date: '',
+            points: data.map(p => [p.lat, p.lon]) }];
+        }
+
+        populateTypeFilter(allData);
+
+        const dates = allData.map(a => a.date).filter(d => d && /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+        if (dates.length) {
+          try {
+            document.getElementById('filter-from').value = dates[0];
+            document.getElementById('filter-to').value   = dates[dates.length - 1];
+          } catch(e) {
+            console.warn('Could not set date inputs:', e);
+          }
+        }
+
+        let minLat = Infinity, minLon = Infinity;
+        let maxLat = -Infinity, maxLon = -Infinity;
+        for (const a of allData) {
+          for (const p of safePoints(a)) {
+            if (p[0] < minLat) minLat = p[0];
+            if (p[0] > maxLat) maxLat = p[0];
+            if (p[1] < minLon) minLon = p[1];
+            if (p[1] > maxLon) maxLon = p[1];
+          }
+        }
+        if (isFinite(minLat)) {
+          map.fitBounds([[minLat, minLon], [maxLat, maxLon]]);
+        }
+
+        redraw();
+      })
+      .catch(e => {
+        document.getElementById('hud-status').textContent = '❌ ' + e.message;
+        console.error(e);
       });
-      if (isFinite(minLat)) {
-        // MapLibre bounds: [[minLon, minLat], [maxLon, maxLat]]
-        map.fitBounds([[minLon, minLat], [maxLon, maxLat]], { padding: 40, duration: 800 });
-      }
-    }
-
-    // ── Load data ──
-    map.on('load', () => {
-      addSources();
-
-      document.getElementById('hud-status').textContent = 'Loading chunks...';
-      setProgress(5);
-
-      fetch('manifest.json')
-        .then(r => { if (!r.ok) throw new Error('manifest.json not found'); return r.json(); })
-        .then(manifest => {
-          const total  = manifest.chunks.length;
-          let   loaded = 0;
-
-          // Fetch all chunks in parallel
-          return Promise.all(
-            manifest.chunks.map(chunk =>
-              fetch(chunk)
-                .then(r => { if (!r.ok) throw new Error(`${chunk} not found`); return r.json(); })
-                .then(data => {
-                  loaded++;
-                  setProgress(5 + (loaded / total) * 70);
-                  document.getElementById('hud-status').textContent =
-                    `Loading ${loaded}/${total} chunks...`;
-                  return data;
-                })
-            )
-          );
-        })
-        .then(chunkArrays => {
-          setProgress(80);
-          allData = chunkArrays.flat();
-
-          // Handle legacy flat format
-          if (allData.length > 0 && allData[0].points === undefined) {
-            allData = [{ id: 'legacy', name: 'All Activities', type: 'running', date: '',
-              points: allData.map(p => [p.lat, p.lon]) }];
-          }
-
-          populateTypeFilter(allData);
-
-          // Set date range defaults
-          const dates = allData.map(a => a.date).filter(d => d && /^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
-          if (dates.length) {
-            try {
-              document.getElementById('filter-from').value = dates[0];
-              document.getElementById('filter-to').value   = dates[dates.length - 1];
-            } catch(e) {}
-          }
-
-          setProgress(90);
-          filteredData = getFiltered();
-          updateSources(filteredData);
-          setProgress(100);
-          fitBounds(filteredData);
-        })
-        .catch(e => {
-          document.getElementById('hud-status').textContent = '❌ ' + e.message;
-          console.error(e);
-        });
-    });
   </script>
 </body>
 </html>
