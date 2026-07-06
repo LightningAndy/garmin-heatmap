@@ -340,7 +340,7 @@
             }
           }
           status.textContent = `Downloading ${entry.file}...`;
-          const data = await (await fetch(entry.file)).json();
+          const data = await (await fetch(`${entry.file}?v=${entry.hash}`, { cache: 'no-store' })).json();
           downloaded++;
           if (db) await dbSet(db, entry.file, { hash: entry.hash, data });
           return data;
