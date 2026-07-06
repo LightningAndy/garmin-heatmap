@@ -163,6 +163,7 @@
     function routeColour(type) {
       if (type === 'travel') return '#ffd27a';
       if (type === 'polar_travel') return '#a8e6ff';
+      if (type === 'brouter') return '#a8e6ff';
       return '#a8e6ff';
     }
 
@@ -251,7 +252,7 @@
       filtered.forEach(a => {
         const pts = safePoints(a);
         if (pts.length < 2) return;
-        const segments = a.type === 'polar_travel'
+        const segments = (a.type === 'polar_travel' || a.type === 'brouter')
           ? [pts]
           : splitRoute(pts, 2, 0.6);
         segments.forEach(seg => {
@@ -285,22 +286,68 @@
       });
     }
 
-    // Load manifest then fetch all chunks in parallel
-    fetch('manifest.json')
-      .then(r => { if (!r.ok) throw new Error('manifest.json not found'); return r.json(); })
-      .then(manifest => {
-        document.getElementById('hud-status').textContent =
-          `Loading ${manifest.chunks.length} chunk(s)...`;
-        return Promise.all(
-          manifest.chunks.map(chunk =>
-            fetch(chunk).then(r => {
-              if (!r.ok) throw new Error(`${chunk} not found`);
-              return r.json();
-            })
-          )
+    // ── IndexedDB cache ──
+    const DB_NAME = 'heatmap-cache', STORE = 'chunks';
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function dbGet(db, key) {
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE, 'readonly').objectStore(STORE).get(key);
+        tx.onsuccess = () => resolve(tx.result);
+        tx.onerror = () => resolve(null);
+      });
+    }
+
+    function dbSet(db, key, val) {
+      return new Promise((resolve) => {
+        const tx = db.transaction(STORE, 'readwrite').objectStore(STORE).put(val, key);
+        tx.onsuccess = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    }
+
+    // ── Load data: cache-first, only fetch changed chunks ──
+    async function loadData() {
+      const status = document.getElementById('hud-status');
+      try {
+        status.textContent = 'Checking for updates...';
+        const manifest = await (await fetch('manifest.json', { cache: 'no-store' })).json();
+
+        // Support both old (string) and new ({file, hash}) manifest formats
+        const entries = manifest.chunks.map(c =>
+          typeof c === 'string' ? { file: c, hash: c } : c
         );
-      })
-      .then(chunkArrays => {
+
+        let db = null;
+        try { db = await openDB(); } catch(e) { console.warn('IndexedDB unavailable:', e); }
+
+        let fromCache = 0, downloaded = 0;
+
+        const chunkArrays = await Promise.all(entries.map(async (entry) => {
+          if (db) {
+            const cached = await dbGet(db, entry.file);
+            if (cached && cached.hash === entry.hash) {
+              fromCache++;
+              return cached.data;
+            }
+          }
+          status.textContent = `Downloading ${entry.file}...`;
+          const data = await (await fetch(entry.file)).json();
+          downloaded++;
+          if (db) await dbSet(db, entry.file, { hash: entry.hash, data });
+          return data;
+        }));
+
+        console.log(`Chunks: ${fromCache} from cache, ${downloaded} downloaded`);
+
         const data = chunkArrays.flat();
 
         if (Array.isArray(data) && data.length > 0 && data[0].points !== undefined) {
@@ -337,11 +384,13 @@
         }
 
         redraw();
-      })
-      .catch(e => {
-        document.getElementById('hud-status').textContent = '❌ ' + e.message;
+      } catch(e) {
+        status.textContent = '❌ ' + e.message;
         console.error(e);
-      });
+      }
+    }
+
+    loadData();
   </script>
 </body>
 </html>
