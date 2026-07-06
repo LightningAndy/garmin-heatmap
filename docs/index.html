@@ -142,6 +142,13 @@
         <input type="date" id="filter-to" onchange="applyFilters()">
       </div>
       <div id="hud-status">Initialising...</div>
+      <button id="hud-refresh" onclick="hardRefresh()" style="
+        background: rgba(4,12,28,0.88); color: #9dd8f0;
+        border: 1px solid rgba(80,180,255,0.25); border-radius: 6px;
+        padding: 5px 14px; font-family: 'Share Tech Mono', monospace;
+        font-size: 10px; cursor: pointer; letter-spacing: 0.08em;">
+        ⟳ FORCE REFRESH
+      </button>
     </div>
   </div>
 
@@ -222,6 +229,11 @@
     function toggleMobile() {
       document.getElementById('hud').classList.toggle('open');
     }
+
+    function hardRefresh() {
+      const req = indexedDB.deleteDatabase('heatmap-cache');
+      req.onsuccess = req.onerror = req.onblocked = () => location.reload(true);
+    }    
 
     function getFiltered() {
       const type = document.getElementById('filter-type').value;
