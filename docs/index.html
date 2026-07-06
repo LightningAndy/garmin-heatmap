@@ -319,8 +319,7 @@
       const status = document.getElementById('hud-status');
       try {
         status.textContent = 'Checking for updates...';
-        const manifest = await (await fetch('manifest.json', { cache: 'no-store' })).json();
-
+        const manifest = await (await fetch(`manifest.json?t=${Date.now()}`, { cache: 'no-store' })).json();
         // Support both old (string) and new ({file, hash}) manifest formats
         const entries = manifest.chunks.map(c =>
           typeof c === 'string' ? { file: c, hash: c } : c
