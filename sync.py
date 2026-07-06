@@ -1,4 +1,4 @@
-import os, json, glob
+import os, json, glob, hashlib
 from garminconnect import Garmin
 import xml.etree.ElementTree as ET
 
@@ -24,20 +24,22 @@ def write_chunks(activities):
     if current_chunk:
         chunks.append(current_chunk)
 
-    chunk_filenames = []
+    chunk_entries = []
     for i, chunk in enumerate(chunks):
         filename = f"heatmap_{i+1}.json"
         filepath = f"docs/{filename}"
+        payload  = json.dumps(chunk)
         with open(filepath, "w") as f:
-            json.dump(chunk, f)
+            f.write(payload)
+        digest  = hashlib.md5(payload.encode()).hexdigest()
         size_mb = os.path.getsize(filepath) / 1024 / 1024
         print(f"  📦 {filename}: {len(chunk)} activities, {size_mb:.1f}MB")
-        chunk_filenames.append(filename)
+        chunk_entries.append({"file": filename, "hash": digest})
 
-    manifest = {"chunks": chunk_filenames}
+    manifest = {"chunks": chunk_entries}
     with open("docs/manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)
-    print(f"  📋 manifest.json updated — {len(chunk_filenames)} chunk(s)")
+    print(f"  📋 manifest.json updated — {len(chunk_entries)} chunk(s)")
 
 
 email    = os.environ["GARMIN_EMAIL"]
