@@ -157,9 +157,18 @@
   <script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
   <script>
-    const map = L.map('map', { preferCanvas: true }).setView([51.5, -0.1], 11);
+    const map = L.map('map', {
+      preferCanvas: true,
+      worldCopyJump: false,
+      maxBounds: [[-85, -180], [85, 180]],
+      maxBoundsViscosity: 1.0,
+      minZoom: 2
+    }).setView([51.5, -0.1], 11);
+
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+      attribution: '© OpenStreetMap © CARTO',
+      maxZoom: 19,
+      noWrap: true
     }).addTo(map);
 
     const GRADIENT = {
