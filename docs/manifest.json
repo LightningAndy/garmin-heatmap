@@ -1,8 +1,20 @@
 {
   "chunks": [
-    "heatmap_1.json",
-    "heatmap_2.json",
-    "heatmap_3.json",
-    "heatmap_4.json"
+    {
+      "file": "heatmap_1.json",
+      "hash": "b105f2d60d476c0b292863baf3b630ab"
+    },
+    {
+      "file": "heatmap_2.json",
+      "hash": "26878916338dfa95502908db028add30"
+    },
+    {
+      "file": "heatmap_3.json",
+      "hash": "4f064fb3e7d1980df837803dcb92afec"
+    },
+    {
+      "file": "heatmap_4.json",
+      "hash": "68e521a51bd5e6ad54e9cb18ae577ac8"
+    }
   ]
 }
