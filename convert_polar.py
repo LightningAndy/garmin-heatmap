@@ -1,4 +1,4 @@
-import json, os, glob
+import json, os, glob, hashlib
 from datetime import datetime, timezone
 
 CHUNK_SIZE_BYTES = 45 * 1024 * 1024
@@ -23,25 +23,27 @@ def write_chunks(activities):
     if current_chunk:
         chunks.append(current_chunk)
 
-    chunk_filenames = []
+    chunk_entries = []
     for i, chunk in enumerate(chunks):
         filename = f"heatmap_{i+1}.json"
         filepath = f"docs/{filename}"
+        payload  = json.dumps(chunk)
         with open(filepath, "w") as f:
-            json.dump(chunk, f)
+            f.write(payload)
+        digest  = hashlib.md5(payload.encode()).hexdigest()
         size_mb = os.path.getsize(filepath) / 1024 / 1024
         print(f"  📦 {filename}: {len(chunk)} activities, {size_mb:.1f}MB")
-        chunk_filenames.append(filename)
+        chunk_entries.append({"file": filename, "hash": digest})
 
-    manifest = {"chunks": chunk_filenames}
+    manifest = {"chunks": chunk_entries}
     with open("docs/manifest.json", "w") as f:
         json.dump(manifest, f, indent=2)
-    print(f"  📋 manifest.json updated — {len(chunk_filenames)} chunk(s)")
+    print(f"  📋 manifest.json updated — {len(chunk_entries)} chunk(s)")
 
 
-GAP_SECONDS  = 6 * 60 * 60
+GAP_SECONDS = 6 * 60 * 60
 polar_activities = []
-file_index   = 0
+file_index = 0
 
 os.makedirs("docs", exist_ok=True)
 json_files = sorted(glob.glob("polar/*.json"))
@@ -60,7 +62,7 @@ for filepath in json_files:
             print(f"  ⚠️ {filename}: empty, skipping")
             continue
 
-        trips   = []
+        trips = []
         current = [locations[0]]
         for loc in locations[1:]:
             if loc["time"] - current[-1]["time"] > GAP_SECONDS:
@@ -90,7 +92,7 @@ for filepath in json_files:
     except Exception as e:
         print(f"  ❌ {filename}: {e}")
 
-# Save polar_travel.json as before
+# Save polar_travel.json
 with open("docs/polar_travel.json", "w") as f:
     json.dump(polar_activities, f)
 print(f"\n📍 Saved {len(polar_activities)} polar trips to docs/polar_travel.json")
