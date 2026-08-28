@@ -163,11 +163,10 @@
       minZoom: 2
     }).setView([51.5, -0.1], 11);
 
-        L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
-      attribution: '© Stadia Maps © OpenMapTiles © OpenStreetMap',
-      maxZoom: 20
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri © OpenStreetMap',
+      maxZoom: 16
     }).addTo(map);
-
 
     const GRADIENT = {
       0.0: '#000033', 0.2: '#003399', 0.4: '#0066cc',
